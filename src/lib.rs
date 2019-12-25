@@ -7,7 +7,7 @@
 //!
 //! ## Publish and subscribe
 //! ```no_run
-//! use aws-iot-device-sdk-rust::AWSIoTClient;
+//! use aws_iot_device_sdk_rust::client;
 //!
 //! fn main() {
 //!     let mut iot_core_client = client::AWSIoTClient::new(
@@ -25,7 +25,7 @@
 
 //! ## Add callback
 //! ```no_run
-//! use aws-iot-device-sdk-rust::AWSIoTClient;
+//! use aws_iot_device_sdk_rust::client;
 //!
 //! fn my_callback() {
 //!     println!("Someone or something published to thing/light/status!");
