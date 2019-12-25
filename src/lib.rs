@@ -44,5 +44,7 @@
 //!```
 
 pub mod client;
+pub mod shadow;
 
 pub use crate::client::AWSIoTClient;
+pub use crate::shadow::AWSShadowManager;
