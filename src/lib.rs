@@ -5,11 +5,10 @@
 //! * Publish and subscribe to any topic you want.
 //! * Register callback functions that will be called to handle incoming messages on any topic.
 //!
-//! TODO: re-export QoS from rumqtt?
 //! ## Publish and subscribe
 //! ```no_run
 //! use aws-iot-device-sdk-rust::AWSIoTClient;
-//! 
+//!
 //! fn main() {
 //!     let mut iot_core_client = client::AWSIoTClient::new(
 //!         "myClientId",
@@ -27,7 +26,7 @@
 //! ## Add callback
 //! ```no_run
 //! use aws-iot-device-sdk-rust::AWSIoTClient;
-//! 
+//!
 //! fn my_callback() {
 //!     println!("Someone or something published to thing/light/status!");
 //! }
@@ -44,8 +43,6 @@
 //! }
 //!```
 
-pub mod shadow;
 pub mod client;
 
 pub use crate::client::AWSIoTClient;
-pub use crate::shadow::AWSShadowManager;
