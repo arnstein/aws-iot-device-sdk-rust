@@ -1,5 +1,5 @@
 [![Documentation](https://docs.rs/aws-iot-device-sdk-rust/badge.svg)](https://docs.rs/aws-iot-device-sdk-rust/)
-[![crates.io]](https://crates.io/crates/aws-iot-device-sdk-rust)](https://crates.io/crates/aws-iot-device-sdk-rust)
+[![crates.io]](https://img.shields.io/crates/v/aws-iot-device-sdk-rust)](https://crates.io/crates/aws-iot-device-sdk-rust)
 
 # aws-iot-device-sdk-rust
 
