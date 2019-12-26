@@ -17,9 +17,10 @@ impl<'a> AWSShadowManager<'a> {
 
     /// Posts an empty message to get the device shadow from the AWS IoT Core broker.
     pub fn get_shadow (&mut self, callback: fn(String)){
-        let shadow_topic = format!("$aws/things/{}/shadow/get", self.thing_name);
-        self.aws_iot_client.add_callback(shadow_topic.clone(), callback);
-        self.aws_iot_client.publish(shadow_topic, QoS::AtMostOnce, "{}");
+        let shadow_get = format!("$aws/things/{}/shadow/get", self.thing_name);
+        let shadow_get_cb = format!("$aws/things/{}/shadow/get/accepted", self.thing_name);
+        self.aws_iot_client.add_callback(shadow_get_cb, callback);
+        self.aws_iot_client.publish(shadow_get, QoS::AtMostOnce, "");
     }
 
     /// Deletes shadow.

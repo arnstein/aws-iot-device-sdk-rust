@@ -5,6 +5,12 @@
 //! * Publish and subscribe to any topic you want.
 //! * Register callback functions that will be called to handle incoming messages on any topic.
 //!
+//! The crate re-exports Mqtt311s Quality of Service enum. These are used when subscribing and
+//! publish. The variants are:
+//! * AtMostOnce (0)
+//! * AtLeastOnce (1)
+//! * ExactlyOnce (2)
+//! 
 //! ## Publish and subscribe
 //! ```no_run
 //! use aws_iot_device_sdk_rust::client;
@@ -18,11 +24,12 @@
 //!         "myendpoint.iot.eu-west-1.amazonaws.com"
 //!         );
 //!
+//!     iot_core_client.start_listening();
 //!     iot_core_client.subscribe("thing/light/status", QoS::AtLeastOnce);
 //!     iot_core_client.publish("thing/light/status", "on");
 //! }
 //!```
-
+//!
 //! ## Add callback
 //! ```no_run
 //! use aws_iot_device_sdk_rust::client;
@@ -39,7 +46,31 @@
 //!         "myendpoint.iot.eu-west-1.amazonaws.com"
 //!         );
 //!
+//!     iot_core_client.start_listening();
 //!     iot_core_client.add_callback("thing/light/status", my_callback);
+//! }
+//!```
+//!
+//! ## Get shadow updates
+//! ```no_run
+//! use aws_iot_device_sdk_rust::{client, shadow};
+//!
+//! fn print_shadow_updates(shadow: String) {
+//!     println!("{:?}", shadow);
+//! }
+//!
+//! fn main() {
+//!     let mut iot_core_client = client::AWSIoTClient::new(
+//!         "myClientId",
+//!         "root-CA.crt",
+//!         "device.cert.pem",
+//!         "device.private.key",
+//!         "myendpoint.iot.eu-west-1.amazonaws.com"
+//!         );
+//!
+//!     let mut shadow_manager = shadow::AWSShadowManager::new(&mut iot_core_client,
+//!         String::from("MyThing"));
+//!     shadow_manager.add_listen_on_delta_callback(print_shadow_updates);
 //! }
 //!```
 
@@ -48,3 +79,5 @@ pub mod shadow;
 
 pub use crate::client::AWSIoTClient;
 pub use crate::shadow::AWSShadowManager;
+pub use serde_json::json;
+pub use rumqtt::QoS;
