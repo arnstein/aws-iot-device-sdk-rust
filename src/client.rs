@@ -1,5 +1,5 @@
 use std::{fs::read, thread, collections::HashMap, sync::{Arc, Mutex}};
-use rumqtt::{QoS, ReconnectOptions, Receiver, Notification, MqttClient, MqttOptions};
+use rumqtt::{QoS, ConnectError, ReconnectOptions, Receiver, Notification, MqttClient, MqttOptions};
 
 pub struct AWSIoTClient {
     pub aws_iot_client: MqttClient,
@@ -15,24 +15,27 @@ impl AWSIoTClient {
         ca_path: &str,
         client_cert_path: &str,
         client_key_path: &str,
-        aws_iot_endpoint: &str) -> AWSIoTClient {
+        aws_iot_endpoint: &str) -> Result<Self, ConnectError> {
 
         let mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883)
-            .set_ca(read(ca_path).unwrap())
-            .set_client_auth(read(client_cert_path).unwrap(), read(client_key_path).unwrap())
+            .set_ca(read(ca_path)?)
+            .set_client_auth(read(client_cert_path)?, read(client_key_path)?)
             .set_keep_alive(10)
             .set_reconnect_opts(ReconnectOptions::Always(5));
-        let mqtt_client = MqttClient::start(mqtt_options).unwrap();
-
-        AWSIoTClient { aws_iot_client: mqtt_client.0, receiver: mqtt_client.1, callback_map: Arc::new(Mutex::new(HashMap::new())) }
+        let mqtt_client = MqttClient::start(mqtt_options)?;
+        Ok(AWSIoTClient {
+            aws_iot_client: mqtt_client.0,
+            receiver: mqtt_client.1,
+            callback_map: Arc::new(Mutex::new(HashMap::new()))
+            })
     }
 
     /// Associates a callback function with a topic name.
-    pub fn add_callback(&self, topic_name: String, callback: fn(String)) {
+    pub fn add_callback(&self, topic_name: String, callback: fn(String)) -> Option<fn(String)> {
         self.callback_map
             .lock()
             .unwrap()
-            .insert(topic_name, callback);
+            .insert(topic_name, callback)
     }
 
     /// Remove the callback function associated with a topic name.

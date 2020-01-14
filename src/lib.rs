@@ -10,7 +10,7 @@
 //! * AtMostOnce (0)
 //! * AtLeastOnce (1)
 //! * ExactlyOnce (2)
-//! 
+//!
 //! ## Publish and subscribe
 //! ```no_run
 //! use aws_iot_device_sdk_rust::client;
@@ -22,7 +22,7 @@
 //!         "device.cert.pem",
 //!         "device.private.key",
 //!         "myendpoint.iot.eu-west-1.amazonaws.com"
-//!         );
+//!         ).unwrap();
 //!
 //!     iot_core_client.start_listening();
 //!     iot_core_client.subscribe("thing/light/status", QoS::AtLeastOnce);
@@ -44,10 +44,10 @@
 //!         "device.cert.pem",
 //!         "device.private.key",
 //!         "myendpoint.iot.eu-west-1.amazonaws.com"
-//!         );
+//!         ).unwrap();
 //!
 //!     iot_core_client.start_listening();
-//!     iot_core_client.add_callback("thing/light/status", my_callback);
+//!     iot_core_client.add_callback("thing/light/status", my_callback).unwrap();
 //! }
 //!```
 //!
@@ -66,7 +66,7 @@
 //!         "device.cert.pem",
 //!         "device.private.key",
 //!         "myendpoint.iot.eu-west-1.amazonaws.com"
-//!         );
+//!         ).unwrap();
 //!
 //!     let mut shadow_manager = shadow::AWSShadowManager::new(&mut iot_core_client,
 //!         String::from("MyThing"));

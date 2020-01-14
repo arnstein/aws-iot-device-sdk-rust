@@ -11,7 +11,7 @@ pub struct AWSShadowManager<'a> {
 impl<'a> AWSShadowManager<'a> {
 
     /// Returns an instantiated shadow manager
-    pub fn new(aws_iot_client: &mut AWSIoTClient, thing_name: String) -> AWSShadowManager {
+    pub fn new(aws_iot_client: &'a mut AWSIoTClient, thing_name: String) -> Self {
         AWSShadowManager { aws_iot_client: aws_iot_client, thing_name: thing_name, device_shadow: Arc::new(Mutex::new(serde_json::Value::Null)) }
     }
 
