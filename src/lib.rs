@@ -75,9 +75,7 @@
 //!```
 
 pub mod client;
-pub mod shadow;
 
 pub use crate::client::AWSIoTClient;
-pub use crate::shadow::AWSShadowManager;
 pub use serde_json::json;
-pub use rumqtt::QoS;
+pub use rumqttc::QoS;

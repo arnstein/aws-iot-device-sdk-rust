@@ -11,12 +11,13 @@ edition = "2018"
 include = [
     "src/lib.rs",
     "src/client.rs",
-    "src/shadow.rs",
     "Cargo.toml",
     "README.md"
     ]
 
 
 [dependencies]
-rumqtt = "0.31.0"
+rumqttc = "0.0.4"
 serde_json = "1.0"
+tokio = { version = "0.2", features = ["full"] }
+crossbeam-channel = "0.3"
