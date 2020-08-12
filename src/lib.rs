@@ -76,6 +76,7 @@
 
 pub mod client;
 
-pub use crate::client::AWSIoTClient;
+pub use crate::client::AWSIoTSyncClient;
+pub use crate::client::AWSIoTAsyncClient;
 pub use serde_json::json;
 pub use rumqttc::QoS;
