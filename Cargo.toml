@@ -17,7 +17,10 @@ include = [
 
 
 [dependencies]
-rumqttc = "0.0.4"
+rumqttc = "0.0.6"
 serde_json = "1.0"
 tokio = { version = "0.2", features = ["full"] }
 crossbeam-channel = "0.3"
+async-trait = "0.1.40"
+mqtt4bytes = "0.1.6"
+async-channel = "1.4.1"

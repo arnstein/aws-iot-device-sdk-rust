@@ -1,29 +1,20 @@
 use std::{fs::read, thread, collections::HashMap, sync::{Arc, Mutex}};
 use std::time::{Duration};
 use async_channel::Sender;
-use rumqttc::{self, Incoming, Client, Connection, EventLoop, MqttOptions, Publish, QoS, Subscribe, Request, ConnectionError};
+use rumqttc::{self, Incoming, Client, Connection, EventLoop, MqttOptions, Publish, PubAck, QoS, Subscribe, Request, ConnectionError};
 use async_trait::async_trait;
 
-#[async_trait]
 pub trait AWSEventHandler {
 
-    fn on_connect() {}
-    fn on_publish(message: Publish) {}
+    fn on_connect() {
+        println!("Default connection!");
+    }
+    fn on_publish(message: Publish) {
+        println!("Default publish");
+    }
 
-    async fn start_async_event_listener(&mut self, mut eventloop: EventLoop) {
-        //loop {
-        let (incoming, outgoing) = eventloop.poll().await.unwrap();
-        match incoming {
-            Some(Incoming::Publish(message)) => {
-                Self::on_publish(message);
-            },
-            Some(Incoming::Connected) => {
-                Self::on_connect();
-            },
-            _ => (),
-            None => (),
-        }
-        //}
+    fn on_puback(message: PubAck) {
+        println!("Default puback");
     }
 
     fn start_event_listener(&self, mut connection: Connection) {
@@ -45,17 +36,55 @@ pub trait AWSEventHandler {
     }
 }
 
-pub struct AWSIoTSyncClient {
+#[async_trait]
+pub trait AWSAsyncEventHandler {
+
+    fn on_connect() {
+        println!("Default connection!");
+    }
+    fn on_publish(message: Publish) {
+        println!("Default publish");
+    }
+
+    fn on_puback(message: PubAck) {
+        println!("Default puback");
+    }
+
+    async fn start_async_event_listener(&self, mut eventloop: EventLoop) {
+        loop {
+            match eventloop.poll().await {
+                Ok(incoming) => {
+                    match incoming.0 {
+                        Some(Incoming::Publish(message)) => {
+                            Self::on_publish(message);
+                        },
+                        Some(Incoming::Connected) => {
+                            Self::on_connect();
+                        },
+                        Some(Incoming::PubAck(puback)) => {
+                            Self::on_puback(puback);
+                        },
+                        _ => (),
+                    }
+                },
+                Err(_) => (),
+            }
+        }
+    }
+
+}
+
+pub struct AWSIoTClient {
     pub client: Client,
 }
 
-impl AWSIoTSyncClient {
+impl AWSIoTClient {
     pub fn new(
         client_id: &str,
         ca_path: &str,
         client_cert_path: &str,
         client_key_path: &str,
-        aws_iot_endpoint: &str) -> Result<(AWSIoTSyncClient, Connection), ConnectionError> {
+        aws_iot_endpoint: &str) -> Result<(AWSIoTClient, Connection), ConnectionError> {
 
         let mut mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883);
         mqtt_options.set_ca(read(ca_path)?)
@@ -63,7 +92,7 @@ impl AWSIoTSyncClient {
             .set_keep_alive(10);
 
             let (client, connection) = Client::new(mqtt_options, 10);
-            Ok((AWSIoTSyncClient { client: client }, connection))
+            Ok((AWSIoTClient { client: client }, connection))
     }
 
     /// Subscribe to any topic.
