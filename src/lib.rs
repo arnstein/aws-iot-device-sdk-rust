@@ -1,9 +1,8 @@
 //! aws-iot-core-sdk-rust aims to be a well-functioning and easy to use AWS IoT device SDK.
-//! At its core it uses the pure Rust MQTT client Rumqtt, as well as Serde for (de)serializing
-//! JSON. The name is chosen to match its C, C++, Python and JS counterparts.
-//! * Use this to easily connect your  IoT devices to AWS IoT Core.
+//! At its core it uses the pure Rust MQTT client rumqttc. The name is chosen to match its C, C++, Python and JS counterparts.
+//! * Use this to easily connect your IoT devices to AWS IoT Core.
 //! * Publish and subscribe to any topic you want.
-//! * Register callback functions that will be called to handle incoming messages on any topic.
+//! * Implement the AWSEventHandler trait for your struct.
 //!
 //! The crate re-exports Mqtt311s Quality of Service enum. These are used when subscribing and
 //! publish. The variants are:

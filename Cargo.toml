@@ -4,7 +4,7 @@ description = "An easy to use SDK for connecting to AWS IoT Core."
 documentation = "https://docs.rs/aws-iot-device-sdk-rust"
 repository = "https://github.com/arnstein/aws-iot-device-sdk-rust"
 license = "MIT"
-version = "0.0.4"
+version = "1.0.0"
 authors = ["Arnstein Kleven <arnsteinkleven@gmail.com>"]
 edition = "2018"
 
@@ -16,11 +16,15 @@ include = [
     ]
 
 
+[features]
+default = ["async"]
+async = ["async-channel", "async-trait"]
+
 [dependencies]
 rumqttc = "0.0.6"
 serde_json = "1.0"
-tokio = { version = "0.2", features = ["full"] }
 crossbeam-channel = "0.3"
-async-trait = "0.1.40"
 mqtt4bytes = "0.1.6"
-async-channel = "1.4.1"
+async-channel = { version = "1.4.1", optional = true }
+async-trait = { version = "0.1.40", optional = true }
+tokio = { version = "0.2", features = ["rt-core"] }
