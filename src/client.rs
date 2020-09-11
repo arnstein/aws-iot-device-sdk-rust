@@ -1,5 +1,5 @@
 use std::fs::read;
-use rumqttc::{self, Incoming, Client, Connection, MqttOptions, Publish, PubAck, QoS, ConnectionError};
+use rumqttc::{self, Incoming, Client, Connection, MqttOptions, Publish, PubAck, SubAck, UnsubAck, QoS, ConnectionError};
 
 #[cfg(feature= "async")]
 use rumqttc::{EventLoop, Subscribe, Request};
@@ -8,29 +8,40 @@ use async_channel::Sender;
 
 pub trait AWSEventHandler {
 
-    fn on_connect() {
-        println!("Default connection!");
-    }
-    fn on_publish(message: Publish) {
-        println!("Default publish");
-    }
-
-    fn on_puback(message: PubAck) {
-        println!("Default puback");
-    }
+    fn on_connect() {}
+    fn on_publish(message: Publish) {}
+    fn on_puback(puback: PubAck) {}
+    fn on_suback(suback: SubAck) {}
+    fn on_unsuback(unsuback: UnsubAck) {}
+    fn on_pingreq() {}
+    fn on_pingresp() {}
 
     fn start_event_listener(&self, mut connection: Connection) {
         for notification in connection.iter() {
             match notification {
                 Ok(notification_type) => match notification_type.0 {
-                    Some(Incoming::Publish(message)) => {
-                        Self::on_publish(message);
-                    },
                     Some(Incoming::Connected) => {
                         Self::on_connect();
                     },
+                    Some(Incoming::Publish(message)) => {
+                        Self::on_publish(message);
+                    },
+                    Some(Incoming::PubAck(puback)) => {
+                        Self::on_puback(puback);
+                    },
+                    Some(Incoming::SubAck(suback)) => {
+                        Self::on_suback(suback);
+                    },
+                    Some(Incoming::UnsubAck(unsuback)) => {
+                        Self::on_unsuback(unsuback);
+                    },
+                    Some(Incoming::PingReq) => {
+                        Self::on_pingreq();
+                    },
+                    Some(Incoming::PingResp) => {
+                        Self::on_pingresp();
+                    },
                     _ => (),
-                    None => (),
                 },
                 Err(_) => (),
             }
@@ -42,31 +53,40 @@ pub trait AWSEventHandler {
 #[async_trait]
 pub trait AWSAsyncEventHandler {
 
-    fn on_connect() {
-        println!("Default connection!");
-    }
-    fn on_publish(message: Publish) {
-        println!("Default publish");
-    }
-
-    fn on_puback(message: PubAck) {
-        println!("Default puback");
-    }
+    async fn on_connect() {}
+    async fn on_publish(message: Publish) {}
+    async fn on_puback(message: PubAck) {}
+    async fn on_suback(suback: SubAck) {}
+    async fn on_unsuback(unsuback: UnsubAck) {}
+    async fn on_pingreq() {}
+    async fn on_pingresp() {}
 
     async fn start_async_event_listener(&self, mut eventloop: EventLoop) {
+
         loop {
             match eventloop.poll().await {
                 Ok(incoming) => {
-                    println!("Incoming message!");
                     match incoming.0 {
-                        Some(Incoming::Publish(message)) => {
-                            Self::on_publish(message);
-                        },
                         Some(Incoming::Connected) => {
                             Self::on_connect();
                         },
+                        Some(Incoming::Publish(message)) => {
+                            Self::on_publish(message);
+                        },
                         Some(Incoming::PubAck(puback)) => {
                             Self::on_puback(puback);
+                        },
+                        Some(Incoming::SubAck(suback)) => {
+                            Self::on_suback(suback);
+                        },
+                        Some(Incoming::UnsubAck(unsuback)) => {
+                            Self::on_unsuback(unsuback);
+                        },
+                        Some(Incoming::PingReq) => {
+                            Self::on_pingreq();
+                        },
+                        Some(Incoming::PingResp) => {
+                            Self::on_pingresp();
                         },
                         _ => (),
                     }
@@ -95,7 +115,6 @@ impl AWSIoTSettings {
         aws_iot_endpoint: String) -> AWSIoTSettings {
 
         AWSIoTSettings { client_id, ca_path, client_cert_path, client_key_path, aws_iot_endpoint }
-    
     }
 }
 

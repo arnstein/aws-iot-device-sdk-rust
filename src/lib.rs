@@ -74,8 +74,10 @@
 //!```
 
 pub mod client;
+pub mod shadow;
 
 pub use crate::client::AWSIoTClient;
 pub use crate::client::AWSIoTAsyncClient;
+pub use crate::shadow::AWSShadow;
 pub use serde_json::json;
 pub use rumqttc::QoS;
