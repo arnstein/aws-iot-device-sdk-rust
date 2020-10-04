@@ -22,7 +22,7 @@ default = ["async"]
 async = ["async-channel", "async-trait"]
 
 [dependencies]
-rumqttc = "0.0.6"
+rumqttc = "0.1.0"
 serde_json = "1.0"
 crossbeam-channel = "0.3"
 mqtt4bytes = "0.1.6"
