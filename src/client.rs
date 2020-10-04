@@ -8,6 +8,7 @@ use async_channel::Sender;
 pub trait AWSEventHandler {
 
     fn on_connect(&self) {}
+    fn on_connack(&self) {}
     fn on_publish(&self, message: Publish) {}
     fn on_puback(&self, puback: PubAck) {}
     fn on_suback(&self, suback: SubAck) {}
@@ -18,39 +19,43 @@ pub trait AWSEventHandler {
 }
 
 //fn start_event_listener(mut connection: Connection, aws_struct: Box<dyn AWSEventHandler>) {
-//fn start_event_listener<T: AWSEventHandler + ?Sized> (mut connection: Connection, aws_struct: &T) {
-//    for notification in connection.iter() {
-//        match notification {
-//            Ok(notification_type) => match notification_type.0 {
-//                Some(Incoming::Connect(c)) => {
-//                    aws_struct.on_connect();
-//                },
-//                Some(Incoming::Publish(message)) => {
-//                    aws_struct.on_publish(message);
-//                },
-//                Some(Incoming::PubAck(puback)) => {
-//                    aws_struct.on_puback(puback);
-//                },
-//                Some(Incoming::SubAck(suback)) => {
-//                    aws_struct.on_suback(suback);
-//                },
-//                Some(Incoming::UnsubAck(unsuback)) => {
-//                    aws_struct.on_unsuback(unsuback);
-//                },
-//                Some(Incoming::PingReq) => {
-//                    aws_struct.on_pingreq();
-//                },
-//                Some(Incoming::PingResp) => {
-//                    aws_struct.on_pingresp();
-//                },
-//                _ => (),
-//            },
-//            Err(_) => (),
-//        }
-//    }
-//}
+fn start_event_listener<T: AWSEventHandler + ?Sized> (mut connection: Connection, aws_struct: &T) {
+    for notification in connection.iter() {
+        match notification.unwrap() {
+            Event::Incoming(i) => {
+                match i {
+                    Incoming::Connect(c) => aws_struct.on_connect(),
+                    Incoming::Publish(message) => {
+                        aws_struct.on_publish(message);
+                    },
+                    Incoming::PubAck(puback) => {
+                        aws_struct.on_puback(puback);
+                    },
+                    Incoming::SubAck(suback) => {
+                        aws_struct.on_suback(suback);
+                    },
+                    Incoming::UnsubAck(unsuback) => {
+                        aws_struct.on_unsuback(unsuback);
+                    },
+                    Incoming::PingReq => {
+                        aws_struct.on_pingreq();
+                    },
+                    Incoming::PingResp => {
+                        aws_struct.on_pingresp();
+                    },
+                    Incoming::ConnAck(c) => {
+                        aws_struct.on_connack();
+                    },
+                    _ => (),
+                }
+            },
+            _ => (),
+        }
+    }
+}
+
 #[cfg(feature= "async")]
-async fn start_async_event_listener<T: AWSEventHandler + ?Sized> (mut eventloop: EventLoop, aws_struct: &T) -> Result<(), ConnectionError>{
+pub async fn start_async_event_listener<T: AWSEventHandler + ?Sized> (mut eventloop: EventLoop, aws_struct: &T) -> Result<(), ConnectionError>{
 
     loop {
         match eventloop.poll().await? {
@@ -75,7 +80,13 @@ async fn start_async_event_listener<T: AWSEventHandler + ?Sized> (mut eventloop:
                     Incoming::PingResp => {
                         aws_struct.on_pingresp();
                     },
-            }
+                    Incoming::ConnAck(c) => {
+                        aws_struct.on_connack();
+                    },
+                    _ => (),
+                }
+            },
+            _ => (),
         }
     }
 }
@@ -86,6 +97,7 @@ pub struct AWSIoTSettings {
         client_cert_path: String,
         client_key_path: String,
         aws_iot_endpoint: String,
+        last_will: Option<LastWill>,
 }
 
 impl AWSIoTSettings {
@@ -94,9 +106,10 @@ impl AWSIoTSettings {
         ca_path: String,
         client_cert_path: String,
         client_key_path: String,
-        aws_iot_endpoint: String) -> AWSIoTSettings {
+        aws_iot_endpoint: String,
+        last_will: Option<LastWill>) -> AWSIoTSettings {
 
-        AWSIoTSettings { client_id, ca_path, client_cert_path, client_key_path, aws_iot_endpoint }
+        AWSIoTSettings { client_id, ca_path, client_cert_path, client_key_path, aws_iot_endpoint, last_will }
     }
 }
 
@@ -114,8 +127,15 @@ impl AWSIoTClient {
             .set_client_auth(read(settings.client_cert_path)?, read(settings.client_key_path)?)
             .set_keep_alive(10);
 
-            let (client, connection) = Client::new(mqtt_options, 10);
-            Ok((AWSIoTClient { client: client }, connection))
+        match settings.last_will {
+            Some(last_will) => {
+                mqtt_options.set_last_will(last_will);
+            },
+            None => (),
+        }
+
+        let (client, connection) = Client::new(mqtt_options, 10);
+        Ok((AWSIoTClient { client: client }, connection))
     }
 
     /// Subscribe to any topic.
@@ -144,7 +164,7 @@ impl AWSIoTAsyncClient {
         client_cert_path: &str,
         client_key_path: &str,
         aws_iot_endpoint: &str,
-        last_will: Option<LastWill>) -> Result<(AWSIoTAsyncClient, EventLoop), ConnectionError> {
+        last_will: Option<LastWill>) -> Result<AWSIoTAsyncClient, ConnectionError> {
 
         let mut mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883);
         mqtt_options.set_ca(read(ca_path)?)
@@ -159,18 +179,16 @@ impl AWSIoTAsyncClient {
         }
 
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
-        Ok((AWSIoTAsyncClient { client, eventloop }))
+        Ok(AWSIoTAsyncClient { client, eventloop })
     }
 
     /// Subscribe to any topic.
     pub async fn subscribe (&mut self, topic_name: String, qos: QoS) {
-        let subscribe = Subscribe::new(topic_name, qos);
-        self.sender.send(Request::Subscribe(subscribe)).await.unwrap();
+        self.client.subscribe(topic_name, qos).await.unwrap();
     }
 
     /// Publish to any topic.
     pub async fn publish (&mut self, topic_name: String, qos: QoS, payload: &str) {
-        let publish = Publish::new(topic_name, qos, payload);
-        self.sender.send(Request::Publish(publish)).await.unwrap();
+        self.client.publish(topic_name, qos, false, payload).await.unwrap();
     }
 }
