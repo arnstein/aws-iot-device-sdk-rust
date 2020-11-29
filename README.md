@@ -9,3 +9,15 @@ With the client you can publish and subscribe to topics and add callbacks that a
 The shadow manager updates, gets, publishes and deletes the device shadow.
 
 It has been through the Works on My Machine Certification Program, and it Works on My Machine™.
+
+## Examples
+
+### PubSub
+
+Download your client certificate and private key in `certs` dir as `certificate.pem.crt` and `private.pem.key`.
+
+Edit `src/main_pubsub.rs` and replace `IOT_ENDPOINT` value with yours.
+
+```bash
+$ cargo run --bin pubsub
+```

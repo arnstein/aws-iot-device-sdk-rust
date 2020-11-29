@@ -16,6 +16,9 @@ include = [
     "README.md"
     ]
 
+[[bin]]
+name = "pubsub"
+path = "src/main_pubsub.rs"
 
 [dependencies]
 rumqtt = "0.31.0"
