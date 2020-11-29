@@ -1,8 +1,10 @@
-# aws-iot-device-sdk-rust
+# aws-iot-device-sdk-rust (unofficial)
 
 The AWS IoT Device SDK for Rust allows developers to write Rust to use their devices to access the AWS IoT platform through MQTT.
 
-This repository was forked from [arnstein/aws-iot-device-sdk-rust](https://github.com/arnstein/aws-iot-device-sdk-rust) to add some examples in it.
+This repository was forked from [arnstein/aws-iot-device-sdk-rust](https://github.com/arnstein/aws-iot-device-sdk-rust) and modified.
+
+This SDK is **unofficial**. Please use it at your own risk.
 
 ## Examples
 
