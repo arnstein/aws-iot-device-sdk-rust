@@ -30,4 +30,6 @@ fn main() {
         iot_client.publish(TOPIC.to_string(), QoS::AtMostOnce, &payload);
         thread::sleep(time::Duration::from_secs(1));
     }
+
+    iot_client.remove_callback(TOPIC.to_string());
 }
