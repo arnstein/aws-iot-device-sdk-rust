@@ -31,5 +31,5 @@ fn main() {
         thread::sleep(time::Duration::from_secs(1));
     }
 
-    iot_client.remove_callback(TOPIC.to_string());
+    iot_client.unsubscribe(TOPIC.to_string());
 }
