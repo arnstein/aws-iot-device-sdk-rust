@@ -83,7 +83,7 @@ impl AWSIoTClient {
         }
     }
 
-    // Subscribe from a topic.
+    // Unsubscribe from a topic.
     pub fn unsubscribe(&mut self, topic_name: String) {
         self.aws_iot_client.unsubscribe(&topic_name).unwrap();
         self.remove_callback(topic_name);
