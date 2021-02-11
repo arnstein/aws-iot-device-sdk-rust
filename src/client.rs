@@ -76,14 +76,14 @@ impl AWSIoTClient {
     /// Subscribe to any topic.
     pub fn subscribe(&mut self, topic_name: String, qos: QoS, callback: fn(String)) {
         self.aws_iot_client.subscribe(&topic_name, qos).unwrap();
+        self.add_callback(topic_name, callback);
         if !self.is_listening {
-            self.add_callback(topic_name, callback);
             self.start_listening();
             self.is_listening = true;
         }
     }
 
-    // Unsubscribe from a topic.
+    /// UnSubscribe from a topic.
     pub fn unsubscribe(&mut self, topic_name: String) {
         self.aws_iot_client.unsubscribe(&topic_name).unwrap();
         self.remove_callback(topic_name);

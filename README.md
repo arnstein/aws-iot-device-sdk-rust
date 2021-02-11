@@ -14,18 +14,25 @@ This SDK is **unofficial**. Please use it at your own risk.
 
 ## Examples
 
-### PubSub
+1. Download [AmazonRootCA1.pem](https://www.amazontrust.com/repository/AmazonRootCA1.pem) into `certs` dir.
+1. Place your client certificate and private key in `certs` dir as `certificate.pem.crt` and `private.pem.key`.
 
-Download [AmazonRootCA1.pem](https://www.amazontrust.com/repository/AmazonRootCA1.pem) into `certs` dir.
+### Pub/Sub
 
-Place your client certificate and private key in `certs` dir as `certificate.pem.crt` and `private.pem.key`.
-
-Edit `src/main_pubsub.rs` and replace `IOT_ENDPOINT` value with yours.
-
-Execute following command to run the example.
+1. Edit `src/main_pubsub.rs` and replace `IOT_ENDPOINT` value with yours.
+1. Execute following command to run the example.
 
 ```bash
 $ cargo run --bin pubsub
+```
+
+### Shadow (support Classic Shadow only)
+
+1. Edit `src/main_shadow.rs` and replace `IOT_ENDPOINT` and `THING_NAME` values with yours.
+1. Execute following command to run the example.
+
+```bash
+$ cargo run --bin shadow
 ```
 
 ## License

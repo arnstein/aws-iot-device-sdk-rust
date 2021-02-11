@@ -20,6 +20,10 @@ include = [
 name = "pubsub"
 path = "src/main_pubsub.rs"
 
+[[bin]]
+name = "shadow"
+path = "src/main_shadow.rs"
+
 [dependencies]
 rumqtt = "0.31.0"
 serde_json = "1.0"
