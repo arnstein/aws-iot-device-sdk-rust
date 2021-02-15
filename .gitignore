@@ -1,3 +1,7 @@
 /target
 **/*.rs.bk
 Cargo.lock
+
+certs/*.crt
+certs/*.key
+certs/*.pem
