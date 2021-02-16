@@ -1,6 +1,6 @@
 mod client;
 
-use rumqtt::QoS;
+use rumqttc::QoS;
 use std::{thread, time};
 
 fn callback(payload: String) {

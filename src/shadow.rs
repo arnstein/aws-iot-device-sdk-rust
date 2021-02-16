@@ -1,5 +1,5 @@
 use crate::client::AWSIoTClient;
-use rumqtt::QoS;
+use rumqttc::QoS;
 use std::sync::{Arc, Mutex};
 
 pub struct AWSShadowManager<'a> {

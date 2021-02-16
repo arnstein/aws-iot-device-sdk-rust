@@ -1,5 +1,5 @@
-use rumqtt::{
-    ConnectError, MqttClient, MqttOptions, Notification, QoS, Receiver, ReconnectOptions,
+use rumqttc::{
+    Client, Connection, ConnectionError, Event, Incoming, Key, MqttOptions, QoS, Transport,
 };
 use std::{
     collections::HashMap,
@@ -9,10 +9,8 @@ use std::{
 };
 
 pub struct AWSIoTClient {
-    pub aws_iot_client: MqttClient,
-    receiver: Receiver<Notification>,
+    pub aws_iot_client: Client,
     callback_map: Arc<Mutex<HashMap<String, fn(String)>>>,
-    is_listening: bool,
 }
 
 impl AWSIoTClient {
@@ -23,18 +21,21 @@ impl AWSIoTClient {
         client_cert_path: &str,
         client_key_path: &str,
         aws_iot_endpoint: &str,
-    ) -> Result<Self, ConnectError> {
-        let mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883)
-            .set_ca(read(ca_path)?)
-            .set_client_auth(read(client_cert_path)?, read(client_key_path)?)
+    ) -> Result<Self, ConnectionError> {
+        let mut mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883);
+        mqtt_options
             .set_keep_alive(10)
-            .set_reconnect_opts(ReconnectOptions::Always(5));
-        let mqtt_client = MqttClient::start(mqtt_options)?;
+            .set_transport(Transport::tls(
+                read(ca_path)?,
+                Some((read(client_cert_path)?, Key::RSA(read(client_key_path)?))),
+                None,
+            ));
+        let (client, connection) = Client::new(mqtt_options, 10);
+        let callback_map = Arc::new(Mutex::new(HashMap::new()));
+        start_listening(connection, Arc::clone(&callback_map));
         Ok(AWSIoTClient {
-            aws_iot_client: mqtt_client.0,
-            receiver: mqtt_client.1,
-            callback_map: Arc::new(Mutex::new(HashMap::new())),
-            is_listening: false,
+            aws_iot_client: client,
+            callback_map: callback_map,
         })
     }
 
@@ -51,36 +52,10 @@ impl AWSIoTClient {
         self.callback_map.lock().unwrap().remove(&topic_name)
     }
 
-    /// When called it will spawn a thread that checks if the HashMap in the AWSIoTClient contain
-    /// a callback function associated with the incoming topics.
-    pub fn start_listening(&mut self) {
-        let callback_map = Arc::clone(&self.callback_map);
-        let receiver = self.receiver.clone();
-        thread::spawn(move || loop {
-            for notification in &receiver {
-                match notification {
-                    rumqtt::client::Notification::Publish(packet) => {
-                        match callback_map.lock().unwrap().get(&packet.topic_name) {
-                            Some(&func) => {
-                                func(String::from_utf8(packet.payload.to_vec()).unwrap());
-                            }
-                            _ => (),
-                        }
-                    }
-                    _ => (),
-                }
-            }
-        });
-    }
-
     /// Subscribe to any topic.
     pub fn subscribe(&mut self, topic_name: String, qos: QoS, callback: fn(String)) {
         self.aws_iot_client.subscribe(&topic_name, qos).unwrap();
         self.add_callback(topic_name, callback);
-        if !self.is_listening {
-            self.start_listening();
-            self.is_listening = true;
-        }
     }
 
     /// UnSubscribe from a topic.
@@ -95,4 +70,26 @@ impl AWSIoTClient {
             .publish(topic_name, qos, false, payload)
             .unwrap();
     }
+}
+
+fn start_listening(
+    mut connection: Connection,
+    callback_map: Arc<Mutex<HashMap<String, fn(String)>>>,
+) {
+    // let callback_map = Arc::clone(&self.callback_map);
+    thread::spawn(move || loop {
+        for notification in connection.iter() {
+            match notification {
+                Ok(Event::Incoming(Incoming::Publish(packet))) => {
+                    match callback_map.lock().unwrap().get(&packet.topic) {
+                        Some(&func) => {
+                            func(String::from_utf8(packet.payload.to_vec()).unwrap());
+                        }
+                        _ => (),
+                    }
+                }
+                _ => (),
+            }
+        }
+    });
 }
