@@ -72,11 +72,12 @@ impl AWSIoTClient {
     }
 }
 
+/// When called it will spawn a thread that checks if the HashMap in the AWSIoTClient contain
+/// a callback function associated with the incoming topics.
 fn start_listening(
     mut connection: Connection,
     callback_map: Arc<Mutex<HashMap<String, fn(String)>>>,
 ) {
-    // let callback_map = Arc::clone(&self.callback_map);
     thread::spawn(move || loop {
         for notification in connection.iter() {
             match notification {
