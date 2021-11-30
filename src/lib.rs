@@ -74,6 +74,7 @@
 //!```
 
 pub mod client;
+pub mod error;
 //pub mod shadow;
 
 pub use crate::client::AWSIoTClient;

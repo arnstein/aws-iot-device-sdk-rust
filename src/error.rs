@@ -8,6 +8,7 @@ pub enum AWSIoTError {
     AsyncChannelReceiveError,
     AsyncChannelSendError,
     AWSConnectionError,
+    IoError,
 }
 
 impl Display for AWSIoTError {
@@ -16,10 +17,16 @@ impl Display for AWSIoTError {
             AWSIoTError::AWSConnectionError => write!(f, "Problem connecting to AWS"),
             AWSIoTError::AsyncChannelReceiveError => write!(f, "Problem receiving on internal channel"),
             AWSIoTError::AsyncChannelSendError => write!(f, "Problem sending on internal channel"),
+            AWSIoTError::IoError => write!(f, "Problem reading file"),
         }
     }
 }
 
+impl From<std::io::Error> for AWSIoTError {
+    fn from(_err: std::io::Error) -> AWSIoTError {
+        AWSIoTError::IoError
+    }
+}
 impl From<AsyncRecvError> for AWSIoTError {
     fn from(_err: AsyncRecvError) -> AWSIoTError {
         AWSIoTError::AsyncChannelReceiveError

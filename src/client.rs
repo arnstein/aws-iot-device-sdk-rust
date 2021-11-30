@@ -1,7 +1,8 @@
 use std::fs::read;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use rumqttc::{self, Event, Incoming, Client, LastWill, Connection, MqttOptions, Publish, QoS, ConnectionError};
+use std::{time::Duration, sync::mpsc::{channel, Receiver, Sender}};
+use rumqttc::{self, Event, Key, Transport, TlsConfiguration, Incoming, Client, LastWill, Connection, MqttOptions, Publish, QoS, ConnectionError};
 use rumqttc::{Sender as RumqttcSender, Connect, PubAck, SubAck, UnsubAck, PubRec, PubRel, PubComp, Subscribe, Unsubscribe, Disconnect, ConnAck, Request, ClientError};
+use crate::error;
 
 #[cfg(feature= "async")]
 use rumqttc::{EventLoop, AsyncClient};
@@ -22,7 +23,6 @@ pub trait AWSEventHandler {
     fn on_unsuback(&self, unsuback: UnsubAck) {}
     fn on_pingreq(&self) {}
     fn on_pingresp(&self) {}
-
 }
 
 fn incoming_event_handler<T: AWSEventHandler + ?Sized> (receiver: Receiver<Event>, aws_struct: &mut T) {
@@ -94,10 +94,40 @@ impl AWSIoTSettings {
         aws_iot_endpoint: String,
         last_will: Option<LastWill>) -> AWSIoTSettings {
 
-        AWSIoTSettings { client_id, ca_path, client_cert_path, client_key_path, aws_iot_endpoint, last_will }
+        AWSIoTSettings { 
+            client_id, 
+            ca_path, 
+            client_cert_path, 
+            client_key_path, 
+            aws_iot_endpoint, 
+            last_will }
     }
 }
 
+fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSIoTError> {
+    let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
+    let ca = read(settings.ca_path)?;
+    let client_cert = read(settings.client_cert_path)?;
+    let client_key = read(settings.client_key_path)?;
+
+    let transport = Transport::Tls(TlsConfiguration::Simple {
+        ca: ca.to_vec(),
+        alpn: None,
+        client_auth: Some((client_cert.to_vec(), Key::RSA(client_key.to_vec()))),
+    });
+    mqtt_options.set_transport(transport)
+        .set_keep_alive(std::time::Duration::from_secs(10));
+
+    match settings.last_will {
+        Some(last_will) => {
+            mqtt_options.set_last_will(last_will);
+        },
+        None => (),
+    }
+
+    Ok(mqtt_options)
+
+}
 pub struct AWSIoTClient {
     pub client: Client,
 }
@@ -107,17 +137,7 @@ impl AWSIoTClient {
         settings: AWSIoTSettings
         ) -> Result<(AWSIoTClient, Connection), ConnectionError> {
 
-        let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
-        mqtt_options.set_ca(read(settings.ca_path)?)
-            .set_client_auth(read(settings.client_cert_path)?, read(settings.client_key_path)?)
-            .set_keep_alive(10);
-
-        match settings.last_will {
-            Some(last_will) => {
-                mqtt_options.set_last_will(last_will);
-            },
-            None => (),
-        }
+        let mqtt_options = get_mqtt_options(settings).unwrap();
 
         let (client, connection) = Client::new(mqtt_options, 10);
         Ok((AWSIoTClient { client: client }, connection))
@@ -152,26 +172,11 @@ pub async fn aws_subscribe<S: Into<String>>(request_tx: RumqttcSender<Request>, 
 #[cfg(feature= "async")]
 impl AWSIoTAsyncClient {
 
-
     pub async fn new(
-        client_id: &str,
-        ca_path: &str,
-        client_cert_path: &str,
-        client_key_path: &str,
-        aws_iot_endpoint: &str,
-        last_will: Option<LastWill>) -> Result<AWSIoTAsyncClient, ConnectionError> {
+        settings: AWSIoTSettings
+        ) -> Result<AWSIoTAsyncClient, ConnectionError> {
 
-        let mut mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883);
-        mqtt_options.set_ca(read(ca_path)?)
-            .set_client_auth(read(client_cert_path)?, read(client_key_path)?)
-            .set_keep_alive(10);
-
-        match last_will {
-            Some(last_will) => {
-                mqtt_options.set_last_will(last_will);
-            },
-            None => (),
-        }
+        let mqtt_options = get_mqtt_options(settings).unwrap();
 
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
         let (request_tx, request_rx) = channel();
