@@ -1,12 +1,9 @@
 use std::fmt::Display;
 use std::fmt;
 use rumqttc::ConnectionError;
-use async_channel::{RecvError as AsyncRecvError, SendError as AsyncSendError};
 
 #[derive(Debug)]
 pub enum AWSIoTError {
-    AsyncChannelReceiveError,
-    AsyncChannelSendError,
     AWSConnectionError,
     IoError,
 }
@@ -15,8 +12,6 @@ impl Display for AWSIoTError {
     fn fmt(&self, f: &mut fmt::Formatter) -> std::fmt::Result {
         match self {
             AWSIoTError::AWSConnectionError => write!(f, "Problem connecting to AWS"),
-            AWSIoTError::AsyncChannelReceiveError => write!(f, "Problem receiving on internal channel"),
-            AWSIoTError::AsyncChannelSendError => write!(f, "Problem sending on internal channel"),
             AWSIoTError::IoError => write!(f, "Problem reading file"),
         }
     }
@@ -25,17 +20,6 @@ impl Display for AWSIoTError {
 impl From<std::io::Error> for AWSIoTError {
     fn from(_err: std::io::Error) -> AWSIoTError {
         AWSIoTError::IoError
-    }
-}
-impl From<AsyncRecvError> for AWSIoTError {
-    fn from(_err: AsyncRecvError) -> AWSIoTError {
-        AWSIoTError::AsyncChannelReceiveError
-    }
-}
-
-impl<T> From<AsyncSendError<T>> for AWSIoTError {
-    fn from(_err: AsyncSendError<T>) -> AWSIoTError {
-        AWSIoTError::AsyncChannelSendError
     }
 }
 

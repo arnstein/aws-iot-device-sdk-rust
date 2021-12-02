@@ -77,7 +77,6 @@ pub mod client;
 pub mod error;
 //pub mod shadow;
 
-pub use crate::client::AWSIoTClient;
 pub use serde_json::json;
 pub use rumqttc::QoS;
 #[cfg(feature= "async")]
