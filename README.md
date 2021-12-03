@@ -30,10 +30,58 @@ It has been through the Works on My Machine Certification Program, and it Works 
 There's several ways of using this crate.
 
 1. Using the AWSIoTAsyncClient message queues
-Create an AWSIoTAsyncClient, then spawn a thread where it listens to incoming events with client.listen().
-Receive the incoming messages in the incoming_event_recever queue, which can be obtained through client.get_receiver().
-Use an eventloop handle with client.get_eventloop_handle() to a send message or send messages to AWS with client.send_message().
+Create an AWSIoTAsyncClient, then spawn a thread where it listens to incoming events with client.listen(). The incoming messages received in this thread will be broadcast to all the receivers. To acquire a new receiver, call client.get_receiver().
 Example:
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let aws_settings = client::AWSIoTSettings::new(
+        "clientid".to_owned(),
+        "AmazonRootCA1.pem".to_owned(),
+        "cert.crt".to_owned(),
+        "key.pem".to_owned(),
+        "endpoint.amazonaws.com".to_owned(),
+        None
+        );
+
+    let mut iot_core_client = client::AWSIoTAsyncClient::new(aws_settings).await?;
+
+    iot_core_client.subscribe("test".to_string(), QoS::AtMostOnce).await.unwrap();
+    iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
+
+    let mut receiver1 = iot_core_client.get_receiver().await;
+    let mut receiver2 = iot_core_client.get_receiver().await;
+
+    let recv1_thread = tokio::spawn(async move {
+        loop {
+            match receiver1.recv().await {
+                Ok(message) => println!("Got message on receiver1: {:?}", message),
+                Err(_) => (),
+            }
+        }
+    });
+
+    let recv2_thread = tokio::spawn(async move {
+        loop {
+            match receiver2.recv().await {
+                Ok(message) => println!("Got message on receiver2: {:?}", message),
+                Err(_) => (),
+            }
+        }
+    });
+    let listen_thread = tokio::spawn(async move {
+        loop {
+            iot_core_client.listen().await.unwrap();
+        }
+    });
+
+    let result = tokio::join!(
+        recv1_thread,
+        recv2_thread,
+        listen_thread);
+
+    Ok(())
+}
 
 2. Implementing the AWSEventHandler trait for your code and using the incoming_event_handler
 If you want a callback based approach, implement the AWSEventHandler trait functions you can define what will happen on each incoming or outgoing message.
@@ -56,6 +104,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
         );
 
     let mut iot_core_client = client::AWSIoTAsyncClient::new(aws_settings).await?;
-    let client = iot_core_client.client;
-    let eventloop = iot_core_client.eventloop;
+    let (client, eventloop) = iot_core_client.get_client_and_eventloop();
 }

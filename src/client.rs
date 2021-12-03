@@ -1,9 +1,9 @@
 use std::fs::read;
-use tokio::{time::Duration};
+use tokio::{sync::broadcast::{self, Receiver, Sender}, time::Duration};
 use rumqttc::{self, Event, Key, Transport, TlsConfiguration, Incoming, Client, LastWill, Connection, MqttOptions, Publish, QoS, ConnectionError};
 use rumqttc::{Sender as RumqttcSender, Connect, PubAck, SubAck, UnsubAck, PubRec, PubRel, PubComp, Subscribe, Unsubscribe, Disconnect, ConnAck, Request, ClientError};
 use crate::error;
-use async_channel::{unbounded, Sender, Receiver};
+//use async_channel::{unbounded, Sender, Receiver};
 //use crossbeam_channel::{unbounded, Sender, Receiver};
 
 #[cfg(feature= "async")]
@@ -133,10 +133,9 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
 
 #[cfg(feature= "async")]
 pub struct AWSIoTAsyncClient {
-    pub client: AsyncClient,
-    pub eventloop: EventLoop,
+    client: AsyncClient,
+    eventloop: EventLoop,
     incoming_event_sender: Sender<Incoming>,
-    pub incoming_event_receiver: Receiver<Incoming>,
 }
 
 
@@ -150,27 +149,41 @@ impl AWSIoTAsyncClient {
         let mqtt_options = get_mqtt_options(settings).unwrap();
 
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
-        let (request_tx, request_rx) = unbounded();
-        Ok(AWSIoTAsyncClient { client, eventloop, incoming_event_receiver: request_rx, incoming_event_sender: request_tx })
+        let (request_tx, _) = broadcast::channel(16);
+        Ok(AWSIoTAsyncClient { client, eventloop, incoming_event_sender: request_tx })
     }
 
-    pub async fn subscribe<S: Into<String>>(&mut self, topic: S, qos: QoS) -> Result<(), ClientError> {
+    pub async fn subscribe<S: Into<String>>(&self, topic: S, qos: QoS) -> Result<(), ClientError> {
         self.client.subscribe(topic, qos).await.unwrap();
         Ok(())
     }
+
+    pub async fn publish<S, V>(&self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError> 
+    where
+        S: Into<String>,
+        V: Into<Vec<u8>>,
+    {
+        self.client.publish(topic, qos, false, payload).await.unwrap();
+        Ok(())
+    }
+
     pub async fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
         self.eventloop.handle()
     }
 
     pub async fn get_receiver(&self) -> Receiver<Incoming> {
-        self.incoming_event_receiver.clone()
+        self.incoming_event_sender.subscribe()
     }
 
-    pub async fn listen(&mut self) -> Result<(), ConnectionError>{
+    pub async fn get_client_and_eventloop(self) -> (AsyncClient, EventLoop) {
+        (self.client, self.eventloop)
+    }
+
+    pub async fn listen((mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>)) -> Result<(), ConnectionError>{
         loop {
-            match self.eventloop.poll().await? {
+            match eventloop.poll().await? {
                 Event::Incoming(i) => {
-                    self.incoming_event_sender.send(i).await.unwrap();
+                    incoming_event_sender.send(i).unwrap();
                 },
                 _ => (),
                 // => println!("Got: {:?}"),
