@@ -44,7 +44,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None
         );
 
-    let mut iot_core_client = client::AWSIoTAsyncClient::new(aws_settings).await?;
+
+    let (iot_core_client, eventloop_stuff) = client::AWSIoTAsyncClient::new(aws_settings).await?;
 
     iot_core_client.subscribe("test".to_string(), QoS::AtMostOnce).await.unwrap();
     iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
@@ -70,16 +71,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     let listen_thread = tokio::spawn(async move {
-        loop {
-            iot_core_client.listen().await.unwrap();
-        }
+            client::listen(eventloop_stuff).await.unwrap();
+            //iot_core_client.listen().await.unwrap();
     });
 
+    //iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
     let result = tokio::join!(
         recv1_thread,
         recv2_thread,
         listen_thread);
-
     Ok(())
 }
 

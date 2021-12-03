@@ -134,7 +134,7 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
 #[cfg(feature= "async")]
 pub struct AWSIoTAsyncClient {
     client: AsyncClient,
-    eventloop: EventLoop,
+    eventloop_handle: RumqttcSender<Request>,
     incoming_event_sender: Sender<Incoming>,
 }
 
@@ -144,13 +144,17 @@ impl AWSIoTAsyncClient {
 
     pub async fn new(
         settings: AWSIoTSettings
-        ) -> Result<AWSIoTAsyncClient, ConnectionError> {
+        ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), ConnectionError> {
 
         let mqtt_options = get_mqtt_options(settings).unwrap();
 
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
         let (request_tx, _) = broadcast::channel(16);
-        Ok(AWSIoTAsyncClient { client, eventloop, incoming_event_sender: request_tx })
+        let eventloop_handle = eventloop.handle();
+        Ok((AWSIoTAsyncClient { client: client, 
+                                eventloop_handle: eventloop_handle, 
+                                incoming_event_sender: request_tx.clone() }, 
+                                (eventloop, request_tx)))
     }
 
     pub async fn subscribe<S: Into<String>>(&self, topic: S, qos: QoS) -> Result<(), ClientError> {
@@ -168,26 +172,38 @@ impl AWSIoTAsyncClient {
     }
 
     pub async fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
-        self.eventloop.handle()
+        self.eventloop_handle.clone()
     }
 
     pub async fn get_receiver(&self) -> Receiver<Incoming> {
         self.incoming_event_sender.subscribe()
     }
 
-    pub async fn get_client_and_eventloop(self) -> (AsyncClient, EventLoop) {
-        (self.client, self.eventloop)
-    }
+    //pub async fn get_client_and_eventloop(self) -> (AsyncClient, EventLoop) {
+    //    (self.client, self.eventloop)
+    //}
 
-    pub async fn listen((mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>)) -> Result<(), ConnectionError>{
-        loop {
-            match eventloop.poll().await? {
-                Event::Incoming(i) => {
-                    incoming_event_sender.send(i).unwrap();
-                },
-                _ => (),
-                // => println!("Got: {:?}"),
-            }
+    //pub async fn listen(&mut self) -> Result<(), ConnectionError>{
+    //    loop {
+    //        match self.eventloop.poll().await? {
+    //            Event::Incoming(i) => {
+    //                self.incoming_event_sender.send(i).unwrap();
+    //            },
+    //            _ => (),
+    //            // => println!("Got: {:?}"),
+    //        }
+    //    }
+    //}
+}
+
+pub async fn listen((mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>)) -> Result<(), ConnectionError>{
+    loop {
+        match eventloop.poll().await? {
+            Event::Incoming(i) => {
+                incoming_event_sender.send(i).unwrap();
+            },
+            _ => (),
+            // => println!("Got: {:?}"),
         }
     }
 }
