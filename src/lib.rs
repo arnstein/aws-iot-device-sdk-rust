@@ -68,8 +68,8 @@
 //!
 //!```
 
-mod client;
-mod error;
+pub mod client;
+pub mod error;
 
 pub use serde_json::json;
 pub use rumqttc::QoS;
