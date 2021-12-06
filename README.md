@@ -83,6 +83,7 @@ After using
 Consult the rumqttc documentation to see how you can use the client and eventloop.
 
 Example:
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let aws_settings = client::AWSIoTSettings::new(
