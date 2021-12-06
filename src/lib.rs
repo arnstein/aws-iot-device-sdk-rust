@@ -68,9 +68,10 @@
 //!
 //!```
 
-pub mod client;
-pub mod error;
+mod client;
+mod error;
 
 pub use serde_json::json;
 pub use rumqttc::QoS;
-pub use crate::client::AWSIoTAsyncClient;
+pub use self::client::{AWSIoTAsyncClient, AWSIoTSettings, async_event_loop_listener};
+pub use self::error::AWSIoTError;

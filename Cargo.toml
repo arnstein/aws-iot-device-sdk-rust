@@ -11,6 +11,7 @@ edition = "2018"
 include = [
     "src/lib.rs",
     "src/client.rs",
+    "src/error.rs",
     "Cargo.toml",
     "README.md"
     ]
