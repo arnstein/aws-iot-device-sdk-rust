@@ -11,7 +11,6 @@ edition = "2018"
 include = [
     "src/lib.rs",
     "src/client.rs",
-    "src/shadow.rs",
     "Cargo.toml",
     "README.md"
     ]
@@ -19,13 +18,10 @@ include = [
 
 [features]
 default = ["async"]
-async = ["async-trait"]
+async = ["tokio"]
 
 [dependencies]
 rumqttc = "0.10.0"
 serde_json = "1.0"
-crossbeam-channel = "0.5.1"
 mqtt4bytes = "0.1.6"
-async-channel = { version = "1.6.1" }
-async-trait = { version = "0.1.40", optional = true }
-tokio = { version = "1.14.0", features = ["rt-multi-thread", "sync", "macros", "net", "time"] }
+tokio = { version = "1.14.0", features = ["rt-multi-thread", "sync", "macros", "net", "time"], optional = true }
