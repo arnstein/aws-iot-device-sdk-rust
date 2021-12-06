@@ -19,9 +19,7 @@ I will also do a revamp of the device shadow functionality in the future.
 
 # Usage
 
-There's several ways of using this crate.
-
-1. Using the AWSIoTAsyncClient event broadcast
+1. Using the AWSIoTAsyncClient and event broadcast
 Create an AWSIoTAsyncClient, then spawn a thread where it listens to incoming events with listen((eventloop, event_sender)). The incoming messages received in this thread will be broadcast to all the receivers. To acquire a new receiver, call client.get_receiver().
 Example:
 
@@ -36,7 +34,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None
         );
 
-
     let (iot_core_client, eventloop_stuff) = client::AWSIoTAsyncClient::new(aws_settings).await?;
 
     iot_core_client.subscribe("test".to_string(), QoS::AtMostOnce).await.unwrap();
@@ -48,7 +45,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let recv1_thread = tokio::spawn(async move {
         loop {
             match receiver1.recv().await {
-                Ok(message) => println!("Got message on receiver1: {:?}", message),
+                Ok(event) => {
+                    match event {
+                        Packet::Publish(p) => println!("Received message {:?} on topic: {}", p.payload, p.topic),
+                        _ => println!("Got event on receiver1: {:?}", event),
+                    }
+
+                },
                 Err(_) => (),
             }
         }
@@ -57,26 +60,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let recv2_thread = tokio::spawn(async move {
         loop {
             match receiver2.recv().await {
-                Ok(message) => println!("Got message on receiver2: {:?}", message),
+                Ok(event) => println!("Got event on receiver2: {:?}", event),
                 Err(_) => (),
             }
         }
     });
+
     let listen_thread = tokio::spawn(async move {
-            client::listen(eventloop_stuff).await.unwrap();
-            //iot_core_client.listen().await.unwrap();
+            client::async_event_loop_listener(eventloop_stuff).await.unwrap();
     });
 
-    //iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
-    let result = tokio::join!(
+    tokio::join!(
         recv1_thread,
         recv2_thread,
         listen_thread);
     Ok(())
 }
 
-2. As an easy way to get your device connected to AWS IoT Core
-The AWSIoTAsyncClient return the rumqttc client and eventloop, which you can use in your own code in any way you want (or at least in any way the borrow checker allows you to...).  
+2. Get Rumqttc client and eventloop and implement it in your own way
+If, for some reason, the current implementation does not work for your code, you could always just create a client and use the get_client() function to easily get a connection to IoT Core, and then implement the rest yourself.
+After using 
 Consult the rumqttc documentation to see how you can use the client and eventloop.
 
 Example:

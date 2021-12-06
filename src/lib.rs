@@ -12,65 +12,60 @@
 //!
 //! ## Publish and subscribe
 //! ```no_run
-//! use aws_iot_device_sdk_rust::client;
+//!#[tokio::main]
+//!async fn main() -> Result<(), Box<dyn Error>> {
+//!    let aws_settings = client::AWSIoTSettings::new(
+//!        "clientid".to_owned(),
+//!        "AmazonRootCA1.pem".to_owned(),
+//!        "cert.crt".to_owned(),
+//!        "key.pem".to_owned(),
+//!        "endpoint.amazonaws.com".to_owned(),
+//!        None
+//!        );
 //!
-//! fn main() {
-//!     let mut iot_core_client = client::AWSIoTClient::new(
-//!         "myClientId",
-//!         "root-CA.crt",
-//!         "device.cert.pem",
-//!         "device.private.key",
-//!         "myendpoint.iot.eu-west-1.amazonaws.com"
-//!         ).unwrap();
+//!    let (iot_core_client, eventloop_stuff) = client::AWSIoTAsyncClient::new(aws_settings).await?;
 //!
-//!     iot_core_client.start_listening();
-//!     iot_core_client.subscribe("thing/light/status", QoS::AtLeastOnce);
-//!     iot_core_client.publish("thing/light/status", "on");
-//! }
-//!```
+//!    iot_core_client.subscribe("test".to_string(), QoS::AtMostOnce).await.unwrap();
+//!    iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
 //!
-//! ## Add callback
-//! ```no_run
-//! use aws_iot_device_sdk_rust::client;
+//!    let mut receiver1 = iot_core_client.get_receiver().await;
+//!    let mut receiver2 = iot_core_client.get_receiver().await;
 //!
-//! fn my_callback() {
-//!     println!("Someone or something published to thing/light/status!");
-//! }
-//! fn main() {
-//!     let mut iot_core_client = client::AWSIoTClient::new(
-//!         "myClientId",
-//!         "root-CA.crt",
-//!         "device.cert.pem",
-//!         "device.private.key",
-//!         "myendpoint.iot.eu-west-1.amazonaws.com"
-//!         ).unwrap();
+//!    let recv1_thread = tokio::spawn(async move {
+//!        loop {
+//!            match receiver1.recv().await {
+//!                Ok(event) => {
+//!                    match event {
+//!                        Packet::Publish(p) => println!("Received message {:?} on topic: {}", p.payload, p.topic),
+//!                        _ => println!("Got event on receiver1: {:?}", event),
+//!                    }
 //!
-//!     iot_core_client.start_listening();
-//!     iot_core_client.add_callback("thing/light/status", my_callback).unwrap();
-//! }
-//!```
+//!                },
+//!                Err(_) => (),
+//!            }
+//!        }
+//!    });
 //!
-//! ## Get shadow updates
-//! ```no_run
-//! use aws_iot_device_sdk_rust::{client, shadow};
+//!    let recv2_thread = tokio::spawn(async move {
+//!        loop {
+//!            match receiver2.recv().await {
+//!                Ok(event) => println!("Got event on receiver2: {:?}", event),
+//!                Err(_) => (),
+//!            }
+//!        }
+//!    });
 //!
-//! fn print_shadow_updates(shadow: String) {
-//!     println!("{:?}", shadow);
-//! }
+//!    let listen_thread = tokio::spawn(async move {
+//!            client::async_event_loop_listener(eventloop_stuff).await.unwrap();
+//!    });
 //!
-//! fn main() {
-//!     let mut iot_core_client = client::AWSIoTClient::new(
-//!         "myClientId",
-//!         "root-CA.crt",
-//!         "device.cert.pem",
-//!         "device.private.key",
-//!         "myendpoint.iot.eu-west-1.amazonaws.com"
-//!         ).unwrap();
+//!    tokio::join!(
+//!        recv1_thread,
+//!        recv2_thread,
+//!        listen_thread);
+//!    Ok(())
+//!}
 //!
-//!     let mut shadow_manager = shadow::AWSShadowManager::new(&mut iot_core_client,
-//!         String::from("MyThing"));
-//!     shadow_manager.add_listen_on_delta_callback(print_shadow_updates);
-//! }
 //!```
 
 pub mod client;
