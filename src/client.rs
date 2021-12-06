@@ -1,80 +1,135 @@
-use std::{fs::read, thread, collections::HashMap, sync::{Arc, Mutex}};
-use rumqtt::{QoS, ReconnectOptions, Receiver, Notification, MqttClient, MqttOptions};
+use std::fs::read;
+use tokio::{sync::broadcast::{self, Receiver, Sender}, time::Duration};
+use rumqttc::{self, Event, Key, Transport, TlsConfiguration, Incoming, LastWill, MqttOptions, QoS, ConnectionError};
+use rumqttc::{Sender as RumqttcSender, Request, ClientError};
+use crate::error;
 
-pub struct AWSIoTClient {
-    pub aws_iot_client: MqttClient,
-    receiver: Receiver<Notification>,
-    callback_map: Arc<Mutex<HashMap<String, fn(String)>>>,
+#[cfg(feature= "async")]
+use rumqttc::{EventLoop, AsyncClient};
+
+pub struct AWSIoTSettings {
+        client_id: String,
+        ca_path: String,
+        client_cert_path: String,
+        client_key_path: String,
+        aws_iot_endpoint: String,
+        last_will: Option<LastWill>,
 }
 
-impl AWSIoTClient {
-
-    /// Returns an AWSIoTClient struct with the instantiated MQTT client ready to be used.
+impl AWSIoTSettings {
     pub fn new(
-        client_id: &str,
-        ca_path: &str,
-        client_cert_path: &str,
-        client_key_path: &str,
-        aws_iot_endpoint: &str) -> AWSIoTClient {
+        client_id: String,
+        ca_path: String,
+        client_cert_path: String,
+        client_key_path: String,
+        aws_iot_endpoint: String,
+        last_will: Option<LastWill>) -> AWSIoTSettings {
 
-        let mqtt_options = MqttOptions::new(client_id, aws_iot_endpoint, 8883)
-            .set_ca(read(ca_path).unwrap())
-            .set_client_auth(read(client_cert_path).unwrap(), read(client_key_path).unwrap())
-            .set_keep_alive(10)
-            .set_reconnect_opts(ReconnectOptions::Always(5));
-        let mqtt_client = MqttClient::start(mqtt_options).unwrap();
+        AWSIoTSettings {
+            client_id,
+            ca_path,
+            client_cert_path,
+            client_key_path,
+            aws_iot_endpoint,
+            last_will }
+    }
+}
 
-        AWSIoTClient { aws_iot_client: mqtt_client.0, receiver: mqtt_client.1, callback_map: Arc::new(Mutex::new(HashMap::new())) }
+fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSIoTError> {
+    let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
+    let ca = read(settings.ca_path)?;
+    let client_cert = read(settings.client_cert_path)?;
+    let client_key = read(settings.client_key_path)?;
+
+    let transport = Transport::Tls(TlsConfiguration::Simple {
+        ca: ca.to_vec(),
+        alpn: None,
+        client_auth: Some((client_cert.to_vec(), Key::RSA(client_key.to_vec()))),
+    });
+    mqtt_options.set_transport(transport)
+        .set_keep_alive(Duration::from_secs(10));
+
+    match settings.last_will {
+        Some(last_will) => {
+            mqtt_options.set_last_will(last_will);
+        },
+        None => (),
     }
 
-    /// Associates a callback function with a topic name.
-    pub fn add_callback(&self, topic_name: String, callback: fn(String)) {
-        self.callback_map
-            .lock()
-            .unwrap()
-            .insert(topic_name, callback);
+    Ok(mqtt_options)
+
+}
+
+pub async fn async_event_loop_listener((mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>)) -> Result<(), ConnectionError>{
+    loop {
+        match eventloop.poll().await? {
+            Event::Incoming(i) => {
+                incoming_event_sender.send(i).unwrap();
+            },
+            _ => (),
+        }
+    }
+}
+
+pub struct AWSIoTAsyncClient {
+    client: AsyncClient,
+    eventloop_handle: RumqttcSender<Request>,
+    incoming_event_sender: Sender<Incoming>,
+}
+
+
+impl AWSIoTAsyncClient {
+
+    /// Create new AWSIoTAsyncClient. Input argument should be the AWSIoTSettings. Returns a tuple where the first element is the
+    /// AWSIoTAsyncClient, and the second element is a new tuple with the eventloop and incoming
+    /// event sender. This tuple should be sent as an argument to the async_event_loop_listener.
+    pub async fn new(
+        settings: AWSIoTSettings
+        ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), ConnectionError> {
+
+        let mqtt_options = get_mqtt_options(settings).unwrap();
+
+        let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
+        let (request_tx, _) = broadcast::channel(16);
+        let eventloop_handle = eventloop.handle();
+        Ok((AWSIoTAsyncClient { client: client,
+                                eventloop_handle: eventloop_handle,
+                                incoming_event_sender: request_tx.clone() },
+                                (eventloop, request_tx)))
     }
 
-    /// Remove the callback function associated with a topic name.
-    pub fn remove_callback(&self, topic_name: String) -> Option<fn(String)> {
-        self.callback_map
-            .lock()
-            .unwrap()
-            .remove(&topic_name)
+    /// Subscribe to a topic.
+    pub async fn subscribe<S: Into<String>>(&self, topic: S, qos: QoS) -> Result<(), ClientError> {
+        self.client.subscribe(topic, qos).await.unwrap();
+        Ok(())
     }
 
-    /// When called it will spawn a thread that checks if the HashMap in the AWSIoTClient contain
-    /// a callback function associated with the incoming topics.
-    pub fn start_listening(&mut self) {
-        let callback_map = Arc::clone(&self.callback_map);
-        let receiver = self.receiver.clone();
-        thread::spawn(move || loop {
-                for notification in &receiver {
-                    match notification {
-                        rumqtt::client::Notification::Publish(packet) => {
-                            match callback_map
-                                .lock()
-                                .unwrap()
-                                .get(&packet.topic_name) {
-                                    Some(&func) => {
-                                    func(String::from_utf8(packet.payload.to_vec()).unwrap());
-                                }
-                                _ => (),
-                            }
-                        },
-                        _ => (),
-                    }
-                }
-        });
+    /// Publish to topic.
+    pub async fn publish<S, V>(&self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError> 
+    where
+        S: Into<String>,
+        V: Into<Vec<u8>>,
+    {
+        self.client.publish(topic, qos, false, payload).await.unwrap();
+        Ok(())
     }
 
-    /// Subscribe to any topic.
-    pub fn subscribe (&mut self, topic_name: String, qos: QoS) {
-            self.aws_iot_client.subscribe(topic_name, qos).unwrap();
+    /// Get an eventloop handle that can be used to interract with the eventloop. Not needed if you
+    /// are only using client.publish and client.subscribe.
+    pub async fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
+        self.eventloop_handle.clone()
     }
 
-    /// Publish to any topic.
-    pub fn publish (&mut self, topic_name: String, qos: QoS, payload: &str) {
-            self.aws_iot_client.publish(topic_name, qos, false, payload).unwrap();
+    /// Get a receiver of the incoming messages. Send this to any function that wants to read the
+    /// incoming messages from IoT Core.
+    pub async fn get_receiver(&self) -> Receiver<Incoming> {
+        self.incoming_event_sender.subscribe()
     }
+
+    /// If you want to use the Rumqttc AsyncClient and EventLoop manually, this method can be used
+    /// to get the AsyncClient.
+    pub async fn get_client(self) -> AsyncClient {
+        self.client
+    }
+
 }
