@@ -1,13 +1,12 @@
 use serde_json::json;
 use rumqttc::{self, Packet, QoS};
 use std::error::Error;
-use aws_iot_device_sdk_rist::client::{AWSIoTSettings, AWSIoTAsyncClient, async_event_loop_listener};
+use aws_iot_device_sdk_rust::client::{AWSIoTSettings, AWSIoTAsyncClient, async_event_loop_listener};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-//fn main() {
 
-    let aws_settings = client::AWSIoTSettings::new(
+    let aws_settings = AWSIoTSettings::new(
         "id".to_owned(),
         "/home/myuser/ca".to_owned(),
         "/home/myuser/cert.crt".to_owned(),
@@ -16,7 +15,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         None
         );
 
-    let (iot_core_client, eventloop_stuff) = client::AWSIoTAsyncClient::new(aws_settings).await?;
+    let (iot_core_client, eventloop_stuff) = AWSIoTAsyncClient::new(aws_settings).await?;
 
     iot_core_client.subscribe("test".to_string(), QoS::AtMostOnce).await.unwrap();
     iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
@@ -48,7 +47,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     let listen_thread = tokio::spawn(async move {
-            client::async_event_loop_listener(eventloop_stuff).await.unwrap();
+            async_event_loop_listener(eventloop_stuff).await.unwrap();
             //iot_core_client.listen().await.unwrap();
     });
 
