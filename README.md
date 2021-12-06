@@ -23,6 +23,7 @@ I will also do a revamp of the device shadow functionality in the future.
 Create an AWSIoTAsyncClient, then spawn a thread where it listens to incoming events with listen((eventloop, event_sender)). The incoming messages received in this thread will be broadcast to all the receivers. To acquire a new receiver, call client.get_receiver().
 Example:
 
+```
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let aws_settings = client::AWSIoTSettings::new(
@@ -76,6 +77,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         listen_thread);
     Ok(())
 }
+```
 
 2. Get Rumqttc client and eventloop and implement it in your own way
 If, for some reason, the current implementation does not work for your code, you could always just create a client and use the get_client() function to easily get a connection to IoT Core, and then implement the rest yourself.
@@ -84,6 +86,7 @@ Consult the rumqttc documentation to see how you can use the client and eventloo
 
 Example:
 
+```
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let aws_settings = client::AWSIoTSettings::new(
@@ -98,3 +101,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let (iot_core_client, (eventloop, _))  = client::AWSIoTAsyncClient::new(aws_settings).await?;
     let client = iot_core_client.get_client();
 }
+```
