@@ -70,6 +70,7 @@
 
 pub mod client;
 pub mod error;
+pub mod shadow;
 
 pub use serde_json::json;
 pub use rumqttc::QoS;
