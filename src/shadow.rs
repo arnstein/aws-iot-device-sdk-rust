@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use tokio::sync::broadcast::Receiver;
 //use std::sync::RwLock;
 use std::sync::RwLock;
-use rumqttc::{self, Incoming, Packet, Client, Connection, MqttOptions, Publish, PubAck, QoS, ConnectionError};
+use rumqttc::{self, Request, Sender as RumqttcSender, Incoming, Packet, Client, Connection, MqttOptions, Publish, PubAck, QoS, ConnectionError};
 
 
 enum ShadowType {
@@ -14,23 +14,26 @@ enum ShadowType {
 struct AWSShadow {
     shadow_topic: String,
     device_shadow: RwLock<serde_json::Value>,
+    eventloop_handle: RumqttcSender<Request>,
 }
 
 impl AWSShadow {
 
-    pub fn new(thing_name: String, shadow_type: ShadowType) -> Self {
+    pub fn new(thing_name: String, shadow_type: ShadowType, eventloop_handle: RumqttcSender<Request>) -> Self {
         let shadow_topic = match shadow_type {
             ShadowType::Classic => format!("$aws/things/{}/shadow", thing_name),
             ShadowType::Named(name) => format!("$aws/things/{}/name/{}", thing_name, name),
         };
+        // send empty message to /get to get shadow
 
         AWSShadow { shadow_topic: shadow_topic,
-                    device_shadow: RwLock::new(serde_json::Value::Null) }
+                    device_shadow: RwLock::new(serde_json::Value::Null), eventloop_handle: eventloop_handle }
 
     }
 
     pub fn set_shadow(&self, value: serde_json::Value) {
         let mut shadow = self.device_shadow.write().unwrap();
+        // send shadow to /update
         *shadow = value;
     }
 
@@ -45,13 +48,15 @@ impl AWSShadow {
                 Ok(event) => {
                     match event {
                         Packet::Publish(p) => {
-                            if p.topic.contains(&self.shadow_topic) {
-
-
+                            match p.topic {
+                                format!("{}/delete/accepted", self.shadow_topic) => self.set_shadow(serde_json::Value::Null),
+                                format!("{}/get/accepted", self.shadow_topic)  => self.set_shadow(p.payload),
+                                format!("{}/update/delta", self.shadow_topic) => self.set_shadow(p.payload),
+                                _ => (),
                             }
-                        },
-                        _ => (),
-                    }
+                        }
+                    _ => (),
+                    },
                 },
                 Err(_) => (),
             }
