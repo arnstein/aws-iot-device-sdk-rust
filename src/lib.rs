@@ -72,6 +72,6 @@ pub mod client;
 pub mod error;
 
 pub use serde_json::json;
-pub use rumqttc::QoS;
+pub use rumqttc::{QoS, Packet};
 pub use self::client::{AWSIoTAsyncClient, AWSIoTSettings, async_event_loop_listener};
 pub use self::error::AWSIoTError;
