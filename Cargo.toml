@@ -4,9 +4,9 @@ description = "An easy to use SDK for connecting to AWS IoT Core."
 documentation = "https://docs.rs/aws-iot-device-sdk-rust"
 repository = "https://github.com/arnstein/aws-iot-device-sdk-rust"
 license = "MIT"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Arnstein Kleven <arnsteinkleven@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 include = [
     "src/lib.rs",
