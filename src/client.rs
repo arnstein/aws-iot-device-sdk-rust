@@ -64,7 +64,10 @@ pub async fn async_event_loop_listener((mut eventloop, incoming_event_sender): (
     loop {
         match eventloop.poll().await? {
             Event::Incoming(i) => {
-                incoming_event_sender.send(i).unwrap();
+                match incoming_event_sender.send(i) {
+                    Ok(_) => (),
+                    Err(e) => println!("Error sending incoming event: {:?}", e),
+                }
             },
             _ => (),
         }
@@ -90,7 +93,7 @@ impl AWSIoTAsyncClient {
         let mqtt_options = get_mqtt_options(settings).unwrap();
 
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
-        let (request_tx, _) = broadcast::channel(16);
+        let (request_tx, _) = broadcast::channel(50);
         let eventloop_handle = eventloop.handle();
         Ok((AWSIoTAsyncClient { client: client,
                                 eventloop_handle: eventloop_handle,
