@@ -62,14 +62,21 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
 
 pub async fn async_event_loop_listener((mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>)) -> Result<(), ConnectionError>{
     loop {
-        match eventloop.poll().await? {
-            Event::Incoming(i) => {
-                match incoming_event_sender.send(i) {
-                    Ok(_) => (),
-                    Err(e) => println!("Error sending incoming event: {:?}", e),
+        match eventloop.poll().await {
+            Ok(event) => {
+                match event {
+                    Event::Incoming(i) => {
+                        match incoming_event_sender.send(i) {
+                            Ok(_) => (),
+                            Err(e) => println!("Error sending incoming event: {:?}", e),
+                        }
+                    },
+                    _ => (),
                 }
             },
-            _ => (),
+            Err(e) => {
+                println!("AWS IoT client error: {:?}", e);
+            }
         }
     }
 }
