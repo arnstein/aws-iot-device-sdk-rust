@@ -13,8 +13,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "/home/myuser/key.pem".to_owned(),
         "endpoint.amazonaws.com".to_owned(),
         None,
-        None
-        );
+    );
 
     let (iot_core_client, eventloop_stuff) = AWSIoTAsyncClient::new(aws_settings).await?;
 

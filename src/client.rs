@@ -29,7 +29,6 @@ pub struct AWSIoTSettings {
         client_cert_path: String,
         client_key_path: String,
         aws_iot_endpoint: String,
-        last_will: Option<LastWill>,
         mqtt_options_overrides: Option<MQTTOptionsOverrides>
 }
 
@@ -40,7 +39,6 @@ impl AWSIoTSettings {
         client_cert_path: String,
         client_key_path: String,
         aws_iot_endpoint: String,
-        last_will: Option<LastWill>,
         mqtt_options_overrides: Option<MQTTOptionsOverrides>
     ) -> AWSIoTSettings {
         AWSIoTSettings {
@@ -49,7 +47,6 @@ impl AWSIoTSettings {
             client_cert_path,
             client_key_path,
             aws_iot_endpoint,
-            last_will,
             mqtt_options_overrides
         }
     }
@@ -98,13 +95,6 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
         if let Some(conn_timeout) = overrides.conn_timeout {
             mqtt_options.set_connection_timeout(conn_timeout);
         }
-    }
-
-    match settings.last_will {
-        Some(last_will) => {
-            mqtt_options.set_last_will(last_will);
-        },
-        None => (),
     }
 
     Ok(mqtt_options)
