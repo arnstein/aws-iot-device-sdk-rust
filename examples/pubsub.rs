@@ -12,6 +12,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "/home/myuser/cert.crt".to_owned(),
         "/home/myuser/key.pem".to_owned(),
         "endpoint.amazonaws.com".to_owned(),
+        None,
         None
         );
 
