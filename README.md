@@ -13,7 +13,7 @@ Current functionality is:
 - subscribe to topic
 - publish to topic
 
-I will also do a revamp of the device shadow functionality in the future.
+A PR with MQTT setting overrides which has breaking changes was accepted. Ideally we would bump the major version, but I do not feel that we are at a 1.0 stage yet. Thus we will have a breaking change from 0.1 to 0.2.
 
 
 
@@ -81,7 +81,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 2. Get Rumqttc client and eventloop and implement it in your own way
 If, for some reason, the current implementation does not work for your code, you could always just create a client and use the get_client() function to easily get a connection to IoT Core, and then implement the rest yourself.
-After using 
 Consult the rumqttc documentation to see how you can use the client and eventloop.
 
 Example:
