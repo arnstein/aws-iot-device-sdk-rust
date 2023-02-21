@@ -7,13 +7,29 @@ use crate::error;
 #[cfg(feature= "async")]
 use rumqttc::{EventLoop, AsyncClient};
 
+pub struct MQTTMaxPacketSize {
+    icoming_max_packet_size: usize,
+    outgoing_max_packet_size: usize,
+}
+
+pub struct MQTTOptionsOverrides {
+    pub clean_session: Option<bool>,
+    pub keep_alive: Option<Duration>,
+    pub max_packet_size: Option<MQTTMaxPacketSize>,
+    pub request_channel_capacity: Option<usize>,
+    pub pending_throttle: Option<Duration>,
+    pub inflight: Option<u16>,
+    pub last_will: Option<LastWill>,
+    pub conn_timeout: Option<u64>,
+}
+
 pub struct AWSIoTSettings {
         client_id: String,
         ca_path: String,
         client_cert_path: String,
         client_key_path: String,
         aws_iot_endpoint: String,
-        last_will: Option<LastWill>,
+        mqtt_options_overrides: Option<MQTTOptionsOverrides>
 }
 
 impl AWSIoTSettings {
@@ -23,15 +39,16 @@ impl AWSIoTSettings {
         client_cert_path: String,
         client_key_path: String,
         aws_iot_endpoint: String,
-        last_will: Option<LastWill>) -> AWSIoTSettings {
-
+        mqtt_options_overrides: Option<MQTTOptionsOverrides>
+    ) -> AWSIoTSettings {
         AWSIoTSettings {
             client_id,
             ca_path,
             client_cert_path,
             client_key_path,
             aws_iot_endpoint,
-            last_will }
+            mqtt_options_overrides
+        }
     }
 }
 
@@ -46,14 +63,38 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
         alpn: None,
         client_auth: Some((client_cert.to_vec(), Key::RSA(client_key.to_vec()))),
     });
+
     mqtt_options.set_transport(transport)
         .set_keep_alive(Duration::from_secs(10));
 
-    match settings.last_will {
-        Some(last_will) => {
+    if let Some(overrides) = settings.mqtt_options_overrides {
+        if let Some(clean_session) = overrides.clean_session {
+            mqtt_options.set_clean_session(clean_session);
+        }
+        if let Some(keep_alive) = overrides.keep_alive {
+            mqtt_options.set_keep_alive(keep_alive);
+        }
+        if let Some(packet_size) = overrides.max_packet_size {
+            mqtt_options.set_max_packet_size(packet_size.icoming_max_packet_size, packet_size.outgoing_max_packet_size);
+        }
+        if let Some(request_channel_capacity) = overrides.request_channel_capacity {
+            mqtt_options.set_request_channel_capacity(request_channel_capacity);
+        }
+        if let Some(pending_throttle) = overrides.pending_throttle {
+            mqtt_options.set_pending_throttle(pending_throttle);
+        }
+        if let Some(inflight) = overrides.inflight {
+            mqtt_options.set_inflight(inflight);
+        }
+        if let Some(clean_session) = overrides.clean_session {
+            mqtt_options.set_clean_session(clean_session);
+        }
+        if let Some(last_will) = overrides.last_will {
             mqtt_options.set_last_will(last_will);
-        },
-        None => (),
+        }
+        if let Some(conn_timeout) = overrides.conn_timeout {
+            mqtt_options.set_connection_timeout(conn_timeout);
+        }
     }
 
     Ok(mqtt_options)
