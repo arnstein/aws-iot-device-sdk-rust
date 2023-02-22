@@ -21,6 +21,7 @@ pub struct MQTTOptionsOverrides {
     pub inflight: Option<u16>,
     pub last_will: Option<LastWill>,
     pub conn_timeout: Option<u64>,
+    pub transport: Option<Transport>
 }
 
 pub struct AWSIoTSettings {
@@ -70,6 +71,9 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
     if let Some(overrides) = settings.mqtt_options_overrides {
         if let Some(clean_session) = overrides.clean_session {
             mqtt_options.set_clean_session(clean_session);
+        }
+        if let Some(transport) = overrides.transport {
+            mqtt_options.set_transport(transport);
         }
         if let Some(keep_alive) = overrides.keep_alive {
             mqtt_options.set_keep_alive(keep_alive);
