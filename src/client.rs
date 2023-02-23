@@ -21,6 +21,7 @@ pub struct MQTTOptionsOverrides {
     pub inflight: Option<u16>,
     pub last_will: Option<LastWill>,
     pub conn_timeout: Option<u64>,
+    pub transport: Option<Transport>
 }
 
 pub struct AWSIoTSettings {
@@ -54,22 +55,15 @@ impl AWSIoTSettings {
 
 fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSIoTError> {
     let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
-    let ca = read(settings.ca_path)?;
-    let client_cert = read(settings.client_cert_path)?;
-    let client_key = read(settings.client_key_path)?;
-
-    let transport = Transport::Tls(TlsConfiguration::Simple {
-        ca: ca.to_vec(),
-        alpn: None,
-        client_auth: Some((client_cert.to_vec(), Key::RSA(client_key.to_vec()))),
-    });
-
-    mqtt_options.set_transport(transport)
-        .set_keep_alive(Duration::from_secs(10));
+    let mut transport_overrided = false;
 
     if let Some(overrides) = settings.mqtt_options_overrides {
         if let Some(clean_session) = overrides.clean_session {
             mqtt_options.set_clean_session(clean_session);
+        }
+        if let Some(transport) = overrides.transport {
+            transport_overrided = true;
+            mqtt_options.set_transport(transport);
         }
         if let Some(keep_alive) = overrides.keep_alive {
             mqtt_options.set_keep_alive(keep_alive);
@@ -96,6 +90,21 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
             mqtt_options.set_connection_timeout(conn_timeout);
         }
     }
+
+    if !transport_overrided {
+        let ca = read(settings.ca_path)?;
+        let client_cert = read(settings.client_cert_path)?;
+        let client_key = read(settings.client_key_path)?;
+
+        let transport = Transport::Tls(TlsConfiguration::Simple {
+            ca: ca.to_vec(),
+            alpn: None,
+            client_auth: Some((client_cert.to_vec(), Key::RSA(client_key.to_vec()))),
+        });
+        mqtt_options.set_transport(transport);
+    }
+
+    mqtt_options.set_keep_alive(Duration::from_secs(10));
 
     Ok(mqtt_options)
 
