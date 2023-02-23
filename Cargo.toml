@@ -22,7 +22,7 @@ default = ["async"]
 async = ["tokio"]
 
 [dependencies]
-rumqttc = "0.10.0"
+rumqttc = "0.15.0"
 serde_json = "1.0"
 mqtt4bytes = "0.1.6"
 tokio = { version = "1.14.0", features = ["rt-multi-thread", "sync", "macros", "net", "time"], optional = true }
