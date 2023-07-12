@@ -1,4 +1,3 @@
-use std::fs::read;
 use tokio::{sync::broadcast::{self, Receiver, Sender}, time::Duration};
 use rumqttc::{self, Event, Key, Transport, TlsConfiguration, Incoming, LastWill, MqttOptions, QoS, ConnectionError};
 use rumqttc::{Sender as RumqttcSender, Request, ClientError};
@@ -53,7 +52,9 @@ impl AWSIoTSettings {
     }
 }
 
-fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSIoTError> {
+async fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSIoTError> {
+    use tokio::fs::read;
+
     let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
     let mut transport_overrided = false;
 
@@ -92,14 +93,14 @@ fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error::AWSI
     }
 
     if !transport_overrided {
-        let ca = read(settings.ca_path)?;
-        let client_cert = read(settings.client_cert_path)?;
-        let client_key = read(settings.client_key_path)?;
+        let ca = read(settings.ca_path).await?;
+        let client_cert = read(settings.client_cert_path).await?;
+        let client_key = read(settings.client_key_path).await?;
 
         let transport = Transport::Tls(TlsConfiguration::Simple {
-            ca: ca.to_vec(),
+            ca,
             alpn: None,
-            client_auth: Some((client_cert.to_vec(), Key::RSA(client_key.to_vec()))),
+            client_auth: Some((client_cert, Key::RSA(client_key))),
         });
         mqtt_options.set_transport(transport);
     }
@@ -144,10 +145,9 @@ impl AWSIoTAsyncClient {
     /// AWSIoTAsyncClient, and the second element is a new tuple with the eventloop and incoming
     /// event sender. This tuple should be sent as an argument to the async_event_loop_listener.
     pub async fn new(
-        settings: AWSIoTSettings
-        ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), ConnectionError> {
-
-        let mqtt_options = get_mqtt_options(settings).unwrap();
+        settings: AWSIoTSettings,
+    ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), error::AWSIoTError> {
+        let mqtt_options = get_mqtt_options(settings).await?;
 
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
         let (request_tx, _) = broadcast::channel(50);
@@ -160,8 +160,7 @@ impl AWSIoTAsyncClient {
 
     /// Subscribe to a topic.
     pub async fn subscribe<S: Into<String>>(&self, topic: S, qos: QoS) -> Result<(), ClientError> {
-        self.client.subscribe(topic, qos).await.unwrap();
-        Ok(())
+        self.client.subscribe(topic, qos).await
     }
 
     /// Publish to topic.
@@ -170,8 +169,7 @@ impl AWSIoTAsyncClient {
         S: Into<String>,
         V: Into<Vec<u8>>,
     {
-        self.client.publish(topic, qos, false, payload).await.unwrap();
-        Ok(())
+        self.client.publish(topic, qos, false, payload).await
     }
 
     /// Get an eventloop handle that can be used to interract with the eventloop. Not needed if you
