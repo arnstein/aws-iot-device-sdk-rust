@@ -1,10 +1,16 @@
-use tokio::{sync::broadcast::{self, Receiver, Sender}, time::Duration};
-use rumqttc::{self, Event, Key, Transport, TlsConfiguration, Incoming, LastWill, MqttOptions, QoS, ConnectionError};
-use rumqttc::{Sender as RumqttcSender, Request, ClientError};
 use crate::error;
+use rumqttc::{
+    self, ConnectionError, Event, Incoming, Key, LastWill, MqttOptions, QoS, TlsConfiguration,
+    Transport,
+};
+use rumqttc::{ClientError, Request, Sender as RumqttcSender};
+use tokio::{
+    sync::broadcast::{self, Receiver, Sender},
+    time::Duration,
+};
 
-#[cfg(feature= "async")]
-use rumqttc::{EventLoop, AsyncClient};
+#[cfg(feature = "async")]
+use rumqttc::{AsyncClient, EventLoop};
 
 pub struct MQTTMaxPacketSize {
     icoming_max_packet_size: usize,
@@ -20,16 +26,16 @@ pub struct MQTTOptionsOverrides {
     pub inflight: Option<u16>,
     pub last_will: Option<LastWill>,
     pub conn_timeout: Option<u64>,
-    pub transport: Option<Transport>
+    pub transport: Option<Transport>,
 }
 
 pub struct AWSIoTSettings {
-        client_id: String,
-        ca_path: String,
-        client_cert_path: String,
-        client_key_path: String,
-        aws_iot_endpoint: String,
-        mqtt_options_overrides: Option<MQTTOptionsOverrides>
+    client_id: String,
+    ca_path: String,
+    client_cert_path: String,
+    client_key_path: String,
+    aws_iot_endpoint: String,
+    mqtt_options_overrides: Option<MQTTOptionsOverrides>,
 }
 
 impl AWSIoTSettings {
@@ -39,7 +45,7 @@ impl AWSIoTSettings {
         client_cert_path: String,
         client_key_path: String,
         aws_iot_endpoint: String,
-        mqtt_options_overrides: Option<MQTTOptionsOverrides>
+        mqtt_options_overrides: Option<MQTTOptionsOverrides>,
     ) -> AWSIoTSettings {
         AWSIoTSettings {
             client_id,
@@ -47,7 +53,7 @@ impl AWSIoTSettings {
             client_cert_path,
             client_key_path,
             aws_iot_endpoint,
-            mqtt_options_overrides
+            mqtt_options_overrides,
         }
     }
 }
@@ -70,7 +76,10 @@ async fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error
             mqtt_options.set_keep_alive(keep_alive);
         }
         if let Some(packet_size) = overrides.max_packet_size {
-            mqtt_options.set_max_packet_size(packet_size.icoming_max_packet_size, packet_size.outgoing_max_packet_size);
+            mqtt_options.set_max_packet_size(
+                packet_size.icoming_max_packet_size,
+                packet_size.outgoing_max_packet_size,
+            );
         }
         if let Some(request_channel_capacity) = overrides.request_channel_capacity {
             mqtt_options.set_request_channel_capacity(request_channel_capacity);
@@ -108,23 +117,20 @@ async fn get_mqtt_options(settings: AWSIoTSettings) -> Result<MqttOptions, error
     mqtt_options.set_keep_alive(Duration::from_secs(10));
 
     Ok(mqtt_options)
-
 }
 
-pub async fn async_event_loop_listener((mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>)) -> Result<(), ConnectionError>{
+pub async fn async_event_loop_listener(
+    (mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>),
+) -> Result<(), ConnectionError> {
     loop {
         match eventloop.poll().await {
             Ok(event) => {
-                match event {
-                    Event::Incoming(i) => {
-                        match incoming_event_sender.send(i) {
-                            Ok(_) => (),
-                            Err(e) => println!("Error sending incoming event: {:?}", e),
-                        }
-                    },
-                    _ => (),
+                if let Event::Incoming(i) = event {
+                    if let Err(e) = incoming_event_sender.send(i) {
+                        println!("Error sending incoming event: {:?}", e);
+                    }
                 }
-            },
+            }
             Err(e) => {
                 println!("AWS IoT client error: {:?}", e);
             }
@@ -138,9 +144,7 @@ pub struct AWSIoTAsyncClient {
     incoming_event_sender: Sender<Incoming>,
 }
 
-
 impl AWSIoTAsyncClient {
-
     /// Create new AWSIoTAsyncClient. Input argument should be the AWSIoTSettings. Returns a tuple where the first element is the
     /// AWSIoTAsyncClient, and the second element is a new tuple with the eventloop and incoming
     /// event sender. This tuple should be sent as an argument to the async_event_loop_listener.
@@ -152,10 +156,14 @@ impl AWSIoTAsyncClient {
         let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
         let (request_tx, _) = broadcast::channel(50);
         let eventloop_handle = eventloop.handle();
-        Ok((AWSIoTAsyncClient { client: client,
-                                eventloop_handle: eventloop_handle,
-                                incoming_event_sender: request_tx.clone() },
-                                (eventloop, request_tx)))
+        Ok((
+            AWSIoTAsyncClient {
+                client,
+                eventloop_handle,
+                incoming_event_sender: request_tx.clone(),
+            },
+            (eventloop, request_tx),
+        ))
     }
 
     /// Subscribe to a topic.
@@ -164,7 +172,7 @@ impl AWSIoTAsyncClient {
     }
 
     /// Publish to topic.
-    pub async fn publish<S, V>(&self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError> 
+    pub async fn publish<S, V>(&self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError>
     where
         S: Into<String>,
         V: Into<Vec<u8>>,
@@ -189,5 +197,4 @@ impl AWSIoTAsyncClient {
     pub async fn get_client(self) -> AsyncClient {
         self.client
     }
-
 }
