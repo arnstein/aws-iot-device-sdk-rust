@@ -68,10 +68,16 @@
 //!
 //!```
 
-pub mod client;
+#[cfg(feature = "async")]
+pub mod async_client;
 pub mod error;
+pub mod settings;
+#[cfg(feature = "sync")]
+pub mod sync_client;
 
-pub use serde_json::json;
-pub use rumqttc::{QoS, Packet, Publish, EventLoop};
-pub use self::client::{AWSIoTAsyncClient, AWSIoTSettings, async_event_loop_listener};
-pub use self::error::AWSIoTError;
+#[cfg(feature = "async")]
+pub use self::async_client::{async_event_loop_listener, AWSIoTAsyncClient};
+#[cfg(feature = "sync")]
+pub use self::sync_client::AWSIoTClient;
+pub use self::{error::AWSIoTError, settings::AWSIoTSettings};
+pub use rumqttc::{EventLoop, Packet, Publish, QoS};
