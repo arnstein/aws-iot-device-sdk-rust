@@ -27,16 +27,12 @@ impl AWSIoTClient {
     }
 
     /// Subscribe to a topic.
-    pub async fn subscribe<S: Into<String>>(
-        &mut self,
-        topic: S,
-        qos: QoS,
-    ) -> Result<(), ClientError> {
+    pub fn subscribe<S: Into<String>>(&mut self, topic: S, qos: QoS) -> Result<(), ClientError> {
         self.client.subscribe(topic, qos)
     }
 
     /// Publish to topic.
-    pub async fn publish<S, V>(&mut self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError>
+    pub fn publish<S, V>(&mut self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError>
     where
         S: Into<String>,
         V: Into<Vec<u8>>,
@@ -46,19 +42,19 @@ impl AWSIoTClient {
 
     /// Get an eventloop handle that can be used to interract with the eventloop. Not needed if you
     /// are only using client.publish and client.subscribe.
-    pub async fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
+    pub fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
         self.eventloop_handle.clone()
     }
 
     /// Get a receiver of the incoming messages. Send this to any function that wants to read the
     /// incoming messages from IoT Core.
-    pub async fn get_receiver(&mut self) -> BusReader<Incoming> {
+    pub fn get_receiver(&mut self) -> BusReader<Incoming> {
         self.incoming_event_sender.add_rx()
     }
 
     /// If you want to use the Rumqttc AsyncClient and EventLoop manually, this method can be used
     /// to get the AsyncClient.
-    pub async fn get_client(self) -> Client {
+    pub fn get_client(self) -> Client {
         self.client
     }
 }
