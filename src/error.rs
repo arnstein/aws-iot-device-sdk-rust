@@ -17,6 +17,8 @@ impl Display for AWSIoTError {
     }
 }
 
+impl std::error::Error for AWSIoTError {}
+
 impl From<std::io::Error> for AWSIoTError {
     fn from(_err: std::io::Error) -> AWSIoTError {
         AWSIoTError::IoError
