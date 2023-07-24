@@ -1,34 +1,71 @@
 use crate::error;
 use crate::settings::{get_mqtt_options, AWSIoTSettings};
-use bus::BusReader;
-use rumqttc::{self, Client, ClientError, Incoming, QoS, Request, Sender as RumqttcSender};
+use bus::{Bus, BusReader};
+use rumqttc::{
+    self, Client, ClientError, Connection, ConnectionError, Event, EventLoop, Incoming, QoS,
+    Request, Sender as RumqttcSender,
+};
+
+pub fn event_loop_listener(
+    (mut eventloop, mut incoming_event_sender): (Connection, std::sync::mpsc::Sender<Incoming>),
+) -> Result<(), ConnectionError> {
+    for notification in eventloop.iter() {
+        match notification {
+            Ok(event) => {
+                if let Event::Incoming(i) = event {
+                    if let Err(e) = incoming_event_sender.send(i) {
+                        println!("Error sending incoming event: {:?}", e);
+                    }
+                }
+            }
+            Err(e) => println!("AWS IoT client error: {:?}", e),
+        }
+    }
+    Ok(())
+}
 
 pub struct AWSIoTClient {
     client: Client,
     eventloop_handle: RumqttcSender<Request>,
-    incoming_event_sender: bus::Bus<Incoming>,
+    incoming_event_sender: std::sync::mpsc::Sender<Incoming>,
+    event_receiver: BusReader<Incoming>,
 }
 
 impl AWSIoTClient {
     /// Create new AWSIoTAsyncClient. Input argument should be the AWSIoTSettings. Returns a tuple where the first element is the
     /// AWSIoTAsyncClient, and the second element is a new tuple with the eventloop and incoming
     /// event sender. This tuple should be sent as an argument to the async_event_loop_listener.
-    pub fn new(settings: AWSIoTSettings) -> Result<Self, error::AWSIoTError> {
+    pub fn new(
+        settings: AWSIoTSettings,
+    ) -> Result<(Self, (Connection, std::sync::mpsc::Sender<Incoming>)), error::AWSIoTError> {
         let mqtt_options = get_mqtt_options(settings)?;
 
         let (client, connection) = Client::new(mqtt_options, 10);
-        let sender = bus::Bus::new(50);
+        let (multi_sender, single_consumer) = std::sync::mpsc::channel();
+        let mut sender = bus::Bus::new(50);
+        let event_receiver = sender.add_rx();
+        std::thread::spawn(move || {
+            while let Ok(msg) = single_consumer.recv() {
+                sender.broadcast(msg);
+            }
+        });
         let eventloop_handle = connection.eventloop.handle();
-        Ok(Self {
-            client,
-            eventloop_handle,
-            incoming_event_sender: sender,
-        })
+        Ok((
+            Self {
+                client,
+                eventloop_handle,
+                incoming_event_sender: multi_sender.clone(),
+                event_receiver,
+            },
+            (connection, multi_sender),
+        ))
     }
 
     /// Subscribe to a topic.
     pub fn subscribe<S: Into<String>>(&mut self, topic: S, qos: QoS) -> Result<(), ClientError> {
-        self.client.subscribe(topic, qos)
+        let res = self.client.subscribe(topic, qos);
+        println!("{:?}", res);
+        res
     }
 
     /// Publish to topic.
