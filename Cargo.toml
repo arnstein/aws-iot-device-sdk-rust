@@ -10,17 +10,14 @@ edition = "2021"
 
 include = [
     "src/lib.rs",
-    "src/client.rs",
+    "src/async_client.rs",
+    "src/sync_client.rs",
+    "src/settings.rs",
     "src/error.rs",
     "Cargo.toml",
     "README.md"
     ]
 
-
-[features]
-default = ["async"]
-async = ["dep:tokio"]
-sync = ["dep:bus"]
 
 [dependencies]
 rumqttc = "0.15.0"
@@ -29,10 +26,15 @@ mqtt4bytes = "0.1.6"
 tokio = { version = "1.14.0", features = ["rt-multi-thread", "sync", "macros", "net", "time", "fs"], optional = true }
 bus = { version = "2.4.0", optional = true }
 
+[features]
+default = ["async"]
+async = ["dep:tokio"]
+sync = ["dep:bus"]
+
+[[example]]
+name = "pubsub_async"
+required-features = ["async"]
+
 [[example]]
 name = "pubsub_sync"
 required-features = ["sync"]
-
-[[example]]
-name = "pubsub"
-required-features = ["async"]
