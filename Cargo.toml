@@ -30,11 +30,3 @@ bus = { version = "2.4.0", optional = true }
 default = ["async"]
 async = ["dep:tokio"]
 sync = ["dep:bus"]
-
-[[example]]
-name = "pubsub_async"
-required-features = ["async"]
-
-[[example]]
-name = "pubsub_sync"
-required-features = ["sync"]
