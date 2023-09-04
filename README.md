@@ -13,14 +13,13 @@ Current functionality is:
 - subscribe to topic
 - publish to topic
 
-A PR with MQTT setting overrides which has breaking changes was accepted. Ideally we would bump the major version, but I do not feel that we are at a 1.0 stage yet. Thus we will have a breaking change from 0.1 to 0.2.
-
 
 
 # Usage
 
 1. Using the AWSIoTAsyncClient and event broadcast
 Create an AWSIoTAsyncClient, then spawn a thread where it listens to incoming events with listen((eventloop, event_sender)). The incoming messages received in this thread will be broadcast to all the receivers. To acquire a new receiver, call client.get_receiver().
+See examples folder for both sync and async examples.
 Example:
 
 ```
