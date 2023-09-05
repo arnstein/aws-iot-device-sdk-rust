@@ -50,6 +50,7 @@ impl AWSIoTSettings {
 
 fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
     let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
+    mqtt_options.set_keep_alive(Duration::from_secs(10));
     if let Some(overrides) = settings.mqtt_options_overrides {
         if let Some(clean_session) = overrides.clean_session {
             mqtt_options.set_clean_session(clean_session);
@@ -86,7 +87,6 @@ fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
         }
     }
 
-    mqtt_options.set_keep_alive(Duration::from_secs(10));
 
     mqtt_options
 }
