@@ -3,8 +3,19 @@ use rumqttc::{self, Key, LastWill, MqttOptions, TlsConfiguration, Transport};
 use std::time::Duration;
 
 pub struct MQTTMaxPacketSize {
-    icoming_max_packet_size: usize,
+    incoming_max_packet_size: usize,
     outgoing_max_packet_size: usize,
+}
+
+impl MQTTMaxPacketSize {
+    pub fn new(
+        incoming_max_packet_size: usize,
+        outgoing_max_packet_size: usize) -> Self {
+
+        MQTTMaxPacketSize { 
+            incoming_max_packet_size, 
+            outgoing_max_packet_size}
+    }
 }
 
 pub struct MQTTOptionsOverrides {
@@ -63,7 +74,7 @@ fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
         }
         if let Some(packet_size) = overrides.max_packet_size {
             mqtt_options.set_max_packet_size(
-                packet_size.icoming_max_packet_size,
+                packet_size.incoming_max_packet_size,
                 packet_size.outgoing_max_packet_size,
             );
         }
