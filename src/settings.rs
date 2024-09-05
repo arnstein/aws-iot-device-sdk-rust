@@ -12,12 +12,13 @@ impl MQTTMaxPacketSize {
         incoming_max_packet_size: usize,
         outgoing_max_packet_size: usize) -> Self {
 
-        MQTTMaxPacketSize { 
-            incoming_max_packet_size, 
+        MQTTMaxPacketSize {
+            incoming_max_packet_size,
             outgoing_max_packet_size}
     }
 }
 
+#[derive(Default)]
 pub struct MQTTOptionsOverrides {
     pub clean_session: Option<bool>,
     pub keep_alive: Option<Duration>,
