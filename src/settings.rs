@@ -2,6 +2,7 @@ use crate::error;
 use rumqttc::{self, Key, LastWill, MqttOptions, TlsConfiguration, Transport};
 use std::time::Duration;
 
+#[derive(Clone, Debug)]
 pub struct MQTTMaxPacketSize {
     incoming_max_packet_size: usize,
     outgoing_max_packet_size: usize,
@@ -18,7 +19,7 @@ impl MQTTMaxPacketSize {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct MQTTOptionsOverrides {
     pub clean_session: Option<bool>,
     pub keep_alive: Option<Duration>,
