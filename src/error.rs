@@ -2,7 +2,7 @@ use rumqttc::ConnectionError;
 use std::fmt;
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AWSIoTError {
     AWSConnectionError,
     IoError,
