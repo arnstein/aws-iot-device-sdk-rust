@@ -2,6 +2,8 @@ use crate::error;
 use rumqttc::{self, Key, LastWill, MqttOptions, TlsConfiguration, Transport};
 use std::time::Duration;
 
+const DEFAULT_PORT: u16 = 8883;
+
 #[derive(Clone, Debug)]
 pub struct MQTTMaxPacketSize {
     incoming_max_packet_size: usize,
@@ -9,18 +11,17 @@ pub struct MQTTMaxPacketSize {
 }
 
 impl MQTTMaxPacketSize {
-    pub fn new(
-        incoming_max_packet_size: usize,
-        outgoing_max_packet_size: usize) -> Self {
-
+    pub fn new(incoming_max_packet_size: usize, outgoing_max_packet_size: usize) -> Self {
         MQTTMaxPacketSize {
             incoming_max_packet_size,
-            outgoing_max_packet_size}
+            outgoing_max_packet_size,
+        }
     }
 }
 
 #[derive(Clone, Default)]
 pub struct MQTTOptionsOverrides {
+    pub port: Option<u16>,
     pub clean_session: Option<bool>,
     pub keep_alive: Option<Duration>,
     pub max_packet_size: Option<MQTTMaxPacketSize>,
@@ -62,7 +63,13 @@ impl AWSIoTSettings {
 }
 
 fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
-    let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, 8883);
+    let port = settings
+        .mqtt_options_overrides
+        .as_ref()
+        .map_or(DEFAULT_PORT, |overrides| {
+            overrides.port.unwrap_or(DEFAULT_PORT)
+        });
+    let mut mqtt_options = MqttOptions::new(settings.client_id, settings.aws_iot_endpoint, port);
     mqtt_options.set_keep_alive(Duration::from_secs(10));
     if let Some(overrides) = settings.mqtt_options_overrides {
         if let Some(clean_session) = overrides.clean_session {
@@ -99,7 +106,6 @@ fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
             mqtt_options.set_connection_timeout(conn_timeout);
         }
     }
-
 
     mqtt_options
 }
