@@ -1,8 +1,8 @@
 use crate::error;
 use crate::settings::{get_mqtt_options_async, AWSIoTSettings};
 use rumqttc::{
-    self, AsyncClient, ClientError, ConnectionError, Event, EventLoop, Incoming, QoS, Request,
-    Sender as RumqttcSender,
+    self, AsyncClient, ClientError, ConnectionError, Event, EventLoop, Incoming, NetworkOptions,
+    QoS,
 };
 use tokio::sync::broadcast::{self, Receiver, Sender};
 
@@ -27,7 +27,6 @@ pub async fn async_event_loop_listener(
 
 pub struct AWSIoTAsyncClient {
     client: AsyncClient,
-    eventloop_handle: RumqttcSender<Request>,
     incoming_event_sender: Sender<Incoming>,
 }
 
@@ -38,15 +37,23 @@ impl AWSIoTAsyncClient {
     pub async fn new(
         settings: AWSIoTSettings,
     ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), error::AWSIoTError> {
+        let timeout = settings
+            .mqtt_options_overrides
+            .as_ref()
+            .and_then(|opts| opts.conn_timeout);
         let mqtt_options = get_mqtt_options_async(settings).await?;
 
-        let (client, eventloop) = AsyncClient::new(mqtt_options, 10);
+        let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
+        if let Some(timeout) = timeout {
+            let mut network_options = NetworkOptions::new();
+            network_options.set_connection_timeout(timeout);
+            eventloop.set_network_options(network_options);
+        }
+
         let (request_tx, _) = broadcast::channel(50);
-        let eventloop_handle = eventloop.handle();
         Ok((
             AWSIoTAsyncClient {
                 client,
-                eventloop_handle,
                 incoming_event_sender: request_tx.clone(),
             },
             (eventloop, request_tx),
@@ -65,12 +72,6 @@ impl AWSIoTAsyncClient {
         V: Into<Vec<u8>>,
     {
         self.client.publish(topic, qos, false, payload).await
-    }
-
-    /// Get an eventloop handle that can be used to interract with the eventloop. Not needed if you
-    /// are only using client.publish and client.subscribe.
-    pub async fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
-        self.eventloop_handle.clone()
     }
 
     /// Get a receiver of the incoming messages. Send this to any function that wants to read the
