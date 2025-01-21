@@ -1,5 +1,5 @@
 use crate::error;
-use rumqttc::{self, Key, LastWill, MqttOptions, TlsConfiguration, Transport};
+use rumqttc::{self, LastWill, MqttOptions, TlsConfiguration, Transport};
 use std::time::Duration;
 
 const DEFAULT_PORT: u16 = 8883;
@@ -39,7 +39,7 @@ pub struct AWSIoTSettings {
     client_cert_path: String,
     client_key_path: String,
     aws_iot_endpoint: String,
-    mqtt_options_overrides: Option<MQTTOptionsOverrides>,
+    pub(crate) mqtt_options_overrides: Option<MQTTOptionsOverrides>,
 }
 
 impl AWSIoTSettings {
@@ -102,9 +102,6 @@ fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
         if let Some(last_will) = overrides.last_will {
             mqtt_options.set_last_will(last_will);
         }
-        if let Some(conn_timeout) = overrides.conn_timeout {
-            mqtt_options.set_connection_timeout(conn_timeout);
-        }
     }
 
     mqtt_options
@@ -129,7 +126,7 @@ pub(crate) async fn get_mqtt_options_async(
         Transport::Tls(TlsConfiguration::Simple {
             ca,
             alpn: None,
-            client_auth: Some((client_cert, Key::RSA(client_key))),
+            client_auth: Some((client_cert, client_key)),
         })
     });
 
@@ -160,7 +157,7 @@ pub(crate) fn get_mqtt_options(
         Transport::Tls(TlsConfiguration::Simple {
             ca,
             alpn: None,
-            client_auth: Some((client_cert, Key::RSA(client_key))),
+            client_auth: Some((client_cert, client_key)),
         })
     });
 

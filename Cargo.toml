@@ -20,7 +20,7 @@ include = [
 
 
 [dependencies]
-rumqttc = "0.15.0"
+rumqttc = "0.24.0"
 serde_json = "1.0"
 mqtt4bytes = "0.1.6"
 tokio = { version = "1.14.0", features = ["rt-multi-thread", "sync", "macros", "net", "time", "fs"], optional = true }

@@ -1,9 +1,6 @@
 use crate::error;
 use crate::settings::{get_mqtt_options, AWSIoTSettings};
-use rumqttc::{
-    self, Client, ClientError, Connection, ConnectionError, Event, Packet, QoS, Request,
-    Sender as RumqttcSender,
-};
+use rumqttc::{self, Client, ClientError, Connection, ConnectionError, Event, Packet, QoS};
 use tokio::sync::broadcast;
 
 pub fn event_loop_listener(
@@ -26,7 +23,6 @@ pub fn event_loop_listener(
 
 pub struct AWSIoTClient {
     client: Client,
-    eventloop_handle: RumqttcSender<Request>,
     event_sender: broadcast::Sender<Packet>,
 }
 
@@ -41,11 +37,9 @@ impl AWSIoTClient {
 
         let (client, connection) = Client::new(mqtt_options, 10);
         let (tx, _) = broadcast::channel(50);
-        let eventloop_handle = connection.eventloop.handle();
 
         let me = Self {
             client,
-            eventloop_handle,
             event_sender: tx.clone(),
         };
 
@@ -66,12 +60,6 @@ impl AWSIoTClient {
         V: Into<Vec<u8>>,
     {
         self.client.publish(topic, qos, false, payload)
-    }
-
-    /// Get an eventloop handle that can be used to interract with the eventloop. Not needed if you
-    /// are only using client.publish and client.subscribe.
-    pub fn get_eventloop_handle(&self) -> RumqttcSender<Request> {
-        self.eventloop_handle.clone()
     }
 
     /// Get a receiver of the incoming messages. Send this to any function that wants to read the

@@ -13,8 +13,8 @@
 //! ## Publish and subscribe
 //! ```no_run
 //!#[tokio::main]
-//!async fn main() -> Result<(), Box<dyn Error>> {
-//!    let aws_settings = client::AWSIoTSettings::new(
+//!async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!    let aws_settings = aws_iot_device_sdk_rust::AWSIoTSettings::new(
 //!        "clientid".to_owned(),
 //!        "AmazonRootCA1.pem".to_owned(),
 //!        "cert.crt".to_owned(),
@@ -23,10 +23,10 @@
 //!        None
 //!        );
 //!
-//!    let (iot_core_client, eventloop_stuff) = client::AWSIoTAsyncClient::new(aws_settings).await?;
+//!    let (iot_core_client, eventloop_stuff) = aws_iot_device_sdk_rust::AWSIoTAsyncClient::new(aws_settings).await?;
 //!
-//!    iot_core_client.subscribe("test".to_string(), QoS::AtMostOnce).await.unwrap();
-//!    iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
+//!    iot_core_client.subscribe("test".to_string(), rumqttc::QoS::AtMostOnce).await.unwrap();
+//!    iot_core_client.publish("topic".to_string(), rumqttc::QoS::AtMostOnce, "hey").await.unwrap();
 //!
 //!    let mut receiver1 = iot_core_client.get_receiver().await;
 //!    let mut receiver2 = iot_core_client.get_receiver().await;
@@ -36,7 +36,7 @@
 //!            match receiver1.recv().await {
 //!                Ok(event) => {
 //!                    match event {
-//!                        Packet::Publish(p) => println!("Received message {:?} on topic: {}", p.payload, p.topic),
+//!                        rumqttc::Packet::Publish(p) => println!("Received message {:?} on topic: {}", p.payload, p.topic),
 //!                        _ => println!("Got event on receiver1: {:?}", event),
 //!                    }
 //!
@@ -56,7 +56,7 @@
 //!    });
 //!
 //!    let listen_thread = tokio::spawn(async move {
-//!            client::async_event_loop_listener(eventloop_stuff).await.unwrap();
+//!            aws_iot_device_sdk_rust::async_client::async_event_loop_listener(eventloop_stuff).await.unwrap();
 //!    });
 //!
 //!    tokio::join!(
