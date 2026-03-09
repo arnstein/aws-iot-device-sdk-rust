@@ -1,5 +1,6 @@
 use crate::error;
 use crate::settings::{get_mqtt_options_async, AWSIoTSettings};
+use log::{error, warn};
 use rumqttc::{
     self, AsyncClient, ClientError, ConnectionError, Event, EventLoop, Incoming, NetworkOptions,
     QoS,
@@ -14,12 +15,12 @@ pub async fn async_event_loop_listener(
             Ok(event) => {
                 if let Event::Incoming(i) = event {
                     if let Err(e) = incoming_event_sender.send(i) {
-                        println!("Error sending incoming event: {:?}", e);
+                        warn!("Error sending incoming event: {:?}", e);
                     }
                 }
             }
             Err(e) => {
-                println!("AWS IoT client error: {:?}", e);
+                error!("AWS IoT client error: {:?}", e);
             }
         }
     }

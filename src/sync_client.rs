@@ -1,21 +1,24 @@
 use crate::error;
 use crate::settings::{get_mqtt_options, AWSIoTSettings};
+use bus::{Bus, BusReader};
+use log::error;
 use rumqttc::{self, Client, ClientError, Connection, ConnectionError, Event, Packet, QoS};
-use tokio::sync::broadcast;
+use std::sync::{Arc, Mutex};
+
+pub type EventBus = Arc<Mutex<Bus<Packet>>>;
 
 pub fn event_loop_listener(
-    (mut eventloop, incoming_event_sender): (Connection, broadcast::Sender<Packet>),
-) -> Result<(), ConnectionError> {
-    for notification in eventloop.iter() {
+    (mut connection, event_bus): (Connection, EventBus),
+) -> Result<(), Box<ConnectionError>> {
+    for notification in connection.iter() {
         match notification {
             Ok(event) => {
                 if let Event::Incoming(i) = event {
-                    if let Err(e) = incoming_event_sender.send(i) {
-                        println!("Error sending incoming event: {:?}", e);
-                    }
+                        let mut bus = event_bus.lock().expect("event bus mutex poisoned");
+                    bus.broadcast(i);
                 }
             }
-            Err(e) => println!("AWS IoT client error: {:?}", e),
+            Err(e) => error!("AWS IoT client error: {:?}", e),
         }
     }
     Ok(())
@@ -23,34 +26,32 @@ pub fn event_loop_listener(
 
 pub struct AWSIoTClient {
     client: Client,
-    event_sender: broadcast::Sender<Packet>,
+    event_bus: Arc<Mutex<Bus<Packet>>>,
 }
 
 impl AWSIoTClient {
-    /// Create new AWSIoTAsyncClient. Input argument should be the AWSIoTSettings. Returns a tuple where the first element is the
-    /// AWSIoTAsyncClient, and the second element is a new tuple with the eventloop and incoming
-    /// event sender. This tuple should be sent as an argument to the async_event_loop_listener.
+    /// Create new AWSIoTClient. Input argument should be the AWSIoTSettings. Returns a tuple where the first element is the
+    /// AWSIoTClient, and the second element is a new tuple with the connection and event bus.
+    /// This tuple should be sent as an argument to the event_loop_listener.
     pub fn new(
         settings: AWSIoTSettings,
-    ) -> Result<(Self, (Connection, broadcast::Sender<Packet>)), error::AWSIoTError> {
+    ) -> Result<(Self, (Connection, EventBus)), error::AWSIoTError> {
         let mqtt_options = get_mqtt_options(settings)?;
 
         let (client, connection) = Client::new(mqtt_options, 10);
-        let (tx, _) = broadcast::channel(50);
+        let event_bus = Arc::new(Mutex::new(Bus::new(50)));
 
         let me = Self {
             client,
-            event_sender: tx.clone(),
+            event_bus: Arc::clone(&event_bus),
         };
 
-        Ok((me, (connection, tx)))
+        Ok((me, (connection, event_bus)))
     }
 
     /// Subscribe to a topic.
     pub fn subscribe<S: Into<String>>(&mut self, topic: S, qos: QoS) -> Result<(), ClientError> {
-        let res = self.client.subscribe(topic, qos);
-        println!("{:?}", res);
-        res
+        self.client.subscribe(topic, qos)
     }
 
     /// Publish to topic.
@@ -64,12 +65,12 @@ impl AWSIoTClient {
 
     /// Get a receiver of the incoming messages. Send this to any function that wants to read the
     /// incoming messages from IoT Core.
-    pub fn get_receiver(&mut self) -> broadcast::Receiver<Packet> {
-        self.event_sender.subscribe()
+    pub fn get_receiver(&mut self) -> BusReader<Packet> {
+        self.event_bus.lock().expect("Failed to lock event bus").add_rx()
     }
 
-    /// If you want to use the Rumqttc AsyncClient and EventLoop manually, this method can be used
-    /// to get the AsyncClient.
+    /// If you want to use the Rumqttc Client and Connection manually, this method can be used
+    /// to get the Client.
     pub fn get_client(self) -> Client {
         self.client
     }

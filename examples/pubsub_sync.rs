@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut receiver1 = iot_core_client.get_receiver();
 
     let recv1_thread = std::thread::spawn(move || loop {
-        if let Ok(event) = receiver1.blocking_recv() {
+        if let Ok(event) = receiver1.recv() {
             println!("Received packet: {event:?}");
         }
     });
