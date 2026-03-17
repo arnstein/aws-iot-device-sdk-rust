@@ -25,8 +25,8 @@
 //!
 //!    let (iot_core_client, eventloop_stuff) = aws_iot_device_sdk_rust::AWSIoTAsyncClient::new(aws_settings).await?;
 //!
-//!    iot_core_client.subscribe("test".to_string(), rumqttc::QoS::AtMostOnce).await.unwrap();
-//!    iot_core_client.publish("topic".to_string(), rumqttc::QoS::AtMostOnce, "hey").await.unwrap();
+//!    iot_core_client.subscribe("test".to_string(), rumqttc::QoS::AtMostOnce).await?;
+//!    iot_core_client.publish("topic".to_string(), rumqttc::QoS::AtMostOnce, "hey").await?;
 //!
 //!    let mut receiver1 = iot_core_client.get_receiver().await;
 //!    let mut receiver2 = iot_core_client.get_receiver().await;

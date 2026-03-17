@@ -1,24 +1,23 @@
-use crate::error;
+use crate::error::AWSIoTError;
 use crate::settings::{get_mqtt_options, AWSIoTSettings};
 use bus::{Bus, BusReader};
-use log::error;
-use rumqttc::{self, Client, ClientError, Connection, ConnectionError, Event, Packet, QoS};
+use rumqttc::{self, Client, Connection, Event, Packet, QoS};
 use std::sync::{Arc, Mutex};
 
 pub type EventBus = Arc<Mutex<Bus<Packet>>>;
 
 pub fn event_loop_listener(
     (mut connection, event_bus): (Connection, EventBus),
-) -> Result<(), Box<ConnectionError>> {
+) -> Result<(), AWSIoTError> {
     for notification in connection.iter() {
         match notification {
             Ok(event) => {
                 if let Event::Incoming(i) = event {
-                        let mut bus = event_bus.lock().expect("event bus mutex poisoned");
+                    let mut bus = event_bus.lock()?;
                     bus.broadcast(i);
                 }
             }
-            Err(e) => error!("AWS IoT client error: {:?}", e),
+            Err(e) => return Err(e.into()),
         }
     }
     Ok(())
@@ -35,7 +34,7 @@ impl AWSIoTClient {
     /// This tuple should be sent as an argument to the event_loop_listener.
     pub fn new(
         settings: AWSIoTSettings,
-    ) -> Result<(Self, (Connection, EventBus)), error::AWSIoTError> {
+    ) -> Result<(Self, (Connection, EventBus)), AWSIoTError> {
         let mqtt_options = get_mqtt_options(settings)?;
 
         let (client, connection) = Client::new(mqtt_options, 10);
@@ -50,23 +49,34 @@ impl AWSIoTClient {
     }
 
     /// Subscribe to a topic.
-    pub fn subscribe<S: Into<String>>(&mut self, topic: S, qos: QoS) -> Result<(), ClientError> {
-        self.client.subscribe(topic, qos)
+    pub fn subscribe<S: Into<String>>(
+        &mut self,
+        topic: S,
+        qos: QoS,
+    ) -> Result<(), AWSIoTError> {
+        self.client.subscribe(topic, qos).map_err(Into::into)
     }
 
     /// Publish to topic.
-    pub fn publish<S, V>(&mut self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError>
+    pub fn publish<S, V>(
+        &mut self,
+        topic: S,
+        qos: QoS,
+        payload: V,
+    ) -> Result<(), AWSIoTError>
     where
         S: Into<String>,
         V: Into<Vec<u8>>,
     {
-        self.client.publish(topic, qos, false, payload)
+        self.client
+            .publish(topic, qos, false, payload)
+            .map_err(Into::into)
     }
 
     /// Get a receiver of the incoming messages. Send this to any function that wants to read the
     /// incoming messages from IoT Core.
-    pub fn get_receiver(&mut self) -> BusReader<Packet> {
-        self.event_bus.lock().expect("Failed to lock event bus").add_rx()
+    pub fn get_receiver(&mut self) -> Result<BusReader<Packet>, AWSIoTError> {
+        Ok(self.event_bus.lock()?.add_rx())
     }
 
     /// If you want to use the Rumqttc Client and Connection manually, this method can be used

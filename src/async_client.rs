@@ -1,15 +1,12 @@
-use crate::error;
+use crate::error::AWSIoTError;
 use crate::settings::{get_mqtt_options_async, AWSIoTSettings};
-use log::{error, warn};
-use rumqttc::{
-    self, AsyncClient, ClientError, ConnectionError, Event, EventLoop, Incoming, NetworkOptions,
-    QoS,
-};
+use log::warn;
+use rumqttc::{self, AsyncClient, Event, EventLoop, Incoming, NetworkOptions, QoS};
 use tokio::sync::broadcast::{self, Receiver, Sender};
 
 pub async fn async_event_loop_listener(
     (mut eventloop, incoming_event_sender): (EventLoop, Sender<Incoming>),
-) -> Result<(), ConnectionError> {
+) -> Result<(), AWSIoTError> {
     loop {
         match eventloop.poll().await {
             Ok(event) => {
@@ -19,9 +16,7 @@ pub async fn async_event_loop_listener(
                     }
                 }
             }
-            Err(e) => {
-                error!("AWS IoT client error: {:?}", e);
-            }
+            Err(e) => return Err(e.into()),
         }
     }
 }
@@ -37,7 +32,7 @@ impl AWSIoTAsyncClient {
     /// event sender. This tuple should be sent as an argument to the async_event_loop_listener.
     pub async fn new(
         settings: AWSIoTSettings,
-    ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), error::AWSIoTError> {
+    ) -> Result<(AWSIoTAsyncClient, (EventLoop, Sender<Incoming>)), AWSIoTError> {
         let timeout = settings
             .mqtt_options_overrides
             .as_ref()
@@ -62,17 +57,29 @@ impl AWSIoTAsyncClient {
     }
 
     /// Subscribe to a topic.
-    pub async fn subscribe<S: Into<String>>(&self, topic: S, qos: QoS) -> Result<(), ClientError> {
-        self.client.subscribe(topic, qos).await
+    pub async fn subscribe<S: Into<String>>(
+        &self,
+        topic: S,
+        qos: QoS,
+    ) -> Result<(), AWSIoTError> {
+        self.client.subscribe(topic, qos).await.map_err(Into::into)
     }
 
     /// Publish to topic.
-    pub async fn publish<S, V>(&self, topic: S, qos: QoS, payload: V) -> Result<(), ClientError>
+    pub async fn publish<S, V>(
+        &self,
+        topic: S,
+        qos: QoS,
+        payload: V,
+    ) -> Result<(), AWSIoTError>
     where
         S: Into<String>,
         V: Into<Vec<u8>>,
     {
-        self.client.publish(topic, qos, false, payload).await
+        self.client
+            .publish(topic, qos, false, payload)
+            .await
+            .map_err(Into::into)
     }
 
     /// Get a receiver of the incoming messages. Send this to any function that wants to read the

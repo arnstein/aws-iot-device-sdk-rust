@@ -17,12 +17,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     iot_core_client
         .subscribe("test".to_string(), QoS::AtMostOnce)
-        .await
-        .unwrap();
+        .await?;
     iot_core_client
         .publish("topic".to_string(), QoS::AtMostOnce, "hey")
-        .await
-        .unwrap();
+        .await?;
 
     let mut receiver1 = iot_core_client.get_receiver().await;
     let mut receiver2 = iot_core_client.get_receiver().await;
