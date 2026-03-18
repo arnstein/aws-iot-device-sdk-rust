@@ -20,7 +20,8 @@ include = [
 
 
 [dependencies]
-rumqttc = "0.25.1"
+rumqttc = { version = "0.25.1", default-features = false, features = ["use-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "sync", "fs"], optional = true }
 bus = { version = "2.4.0", optional = true }
 log = "0.4"
