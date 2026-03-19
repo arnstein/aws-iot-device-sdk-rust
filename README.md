@@ -4,7 +4,7 @@
 
 # aws-iot-device-sdk-rust
 
-A Rust SDK for connecting IoT devices to [AWS IoT Core](https://aws.amazon.com/iot-core/) via MQTT 3.1.1. Built on top of [rumqttc](https://crates.io/crates/rumqttc) with TLS powered by [rustls](https://crates.io/crates/rustls) (no OpenSSL dependency).
+A Rust SDK for connecting IoT devices to [AWS IoT Core](https://aws.amazon.com/iot-core/) via MQTT 3.1.1. Built on top of [rumqttc](https://crates.io/crates/rumqttc) with TLS powered by [rustls](https://crates.io/crates/rustls).
 
 ## Features
 
@@ -13,7 +13,6 @@ A Rust SDK for connecting IoT devices to [AWS IoT Core](https://aws.amazon.com/i
 - Publish and subscribe to MQTT topics
 - Broadcast incoming messages to multiple receivers
 - Configurable MQTT options (keep-alive, packet size, last will, etc.)
-- Pure Rust TLS stack -- no native dependencies required
 
 ## Installation
 
@@ -21,21 +20,21 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-aws-iot-device-sdk-rust = "0.6"
+aws-iot-device-sdk-rust = "0.7"
 ```
 
 By default the async client is enabled. To use the sync client instead:
 
 ```toml
 [dependencies]
-aws-iot-device-sdk-rust = { version = "0.6", default-features = false, features = ["sync"] }
+aws-iot-device-sdk-rust = { version = "0.7", default-features = false, features = ["sync"] }
 ```
 
 You can also enable both:
 
 ```toml
 [dependencies]
-aws-iot-device-sdk-rust = { version = "0.6", features = ["sync"] }
+aws-iot-device-sdk-rust = { version = "0.7", features = ["sync"] }
 ```
 
 ## Prerequisites
@@ -183,7 +182,6 @@ All fallible operations return `Result<_, AWSIoTError>`. The error type wraps th
 | `IoError` | File I/O error when reading certificates or keys |
 | `MutexError` | Mutex poisoning (sync client only) |
 
-The crate also re-exports key rumqttc types (`ConnectionError`, `Event`, `EventLoop`, `Packet`, `Publish`, `QoS`, `StateError`) so you don't need to depend on rumqttc directly.
 
 ## License
 
