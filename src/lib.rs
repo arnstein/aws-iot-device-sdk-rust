@@ -80,4 +80,4 @@ pub use self::async_client::{async_event_loop_listener, AWSIoTAsyncClient};
 #[cfg(feature = "sync")]
 pub use self::sync_client::AWSIoTClient;
 pub use self::{error::AWSIoTError, settings::AWSIoTSettings};
-pub use rumqttc::{ConnectionError, Event, EventLoop, Packet, Publish, QoS, StateError};
+pub use rumqttc::{ConnectionError, Event, EventLoop, Incoming, Packet, Publish, QoS, StateError, TlsConfiguration, Transport};
