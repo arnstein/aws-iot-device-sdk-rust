@@ -96,9 +96,6 @@ fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
         if let Some(inflight) = overrides.inflight {
             mqtt_options.set_inflight(inflight);
         }
-        if let Some(clean_session) = overrides.clean_session {
-            mqtt_options.set_clean_session(clean_session);
-        }
         if let Some(last_will) = overrides.last_will {
             mqtt_options.set_last_will(last_will);
         }

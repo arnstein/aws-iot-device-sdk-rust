@@ -25,8 +25,8 @@
 //!
 //!    let (iot_core_client, eventloop_stuff) = aws_iot_device_sdk_rust::AWSIoTAsyncClient::new(aws_settings).await?;
 //!
-//!    iot_core_client.subscribe("test".to_string(), rumqttc::QoS::AtMostOnce).await.unwrap();
-//!    iot_core_client.publish("topic".to_string(), rumqttc::QoS::AtMostOnce, "hey").await.unwrap();
+//!    iot_core_client.subscribe("test".to_string(), rumqttc::QoS::AtMostOnce).await?;
+//!    iot_core_client.publish("topic".to_string(), rumqttc::QoS::AtMostOnce, "hey").await?;
 //!
 //!    let mut receiver1 = iot_core_client.get_receiver().await;
 //!    let mut receiver2 = iot_core_client.get_receiver().await;
@@ -68,16 +68,23 @@
 //!
 //!```
 
-#[cfg(feature = "async")]
-pub mod async_client;
+pub use rumqttc::{ClientError, ConnectionError, Event, EventLoop, Incoming, Packet, Publish, QoS, StateError, TlsConfiguration, Transport};
+pub use self::{error::AWSIoTError, settings::AWSIoTSettings};
 pub mod error;
 pub mod settings;
-#[cfg(feature = "sync")]
-pub mod sync_client;
 
 #[cfg(feature = "async")]
+pub mod async_client;
+#[cfg(feature = "async")]
 pub use self::async_client::{async_event_loop_listener, AWSIoTAsyncClient};
+#[cfg(feature = "async")]
+pub use rumqttc::AsyncClient;
+
 #[cfg(feature = "sync")]
-pub use self::sync_client::AWSIoTClient;
-pub use self::{error::AWSIoTError, settings::AWSIoTSettings};
-pub use rumqttc::{EventLoop, Packet, Publish, QoS};
+pub mod sync_client;
+#[cfg(feature = "sync")]
+pub use self::sync_client::{AWSIoTClient, EventBus};
+#[cfg(feature = "sync")]
+pub use bus::BusReader;
+#[cfg(feature = "sync")]
+pub use rumqttc::{Client, Connection};

@@ -16,14 +16,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     std::thread::spawn(move || event_loop_listener(event_loop));
 
-    iot_core_client
-        .subscribe("/sdk/test/#".to_string(), QoS::AtMostOnce)
-        .unwrap();
+    iot_core_client.subscribe("/sdk/test/#".to_string(), QoS::AtMostOnce)?;
 
-    let mut receiver1 = iot_core_client.get_receiver();
+    let mut receiver1 = iot_core_client.get_receiver()?;
 
     let recv1_thread = std::thread::spawn(move || loop {
-        if let Ok(event) = receiver1.blocking_recv() {
+        if let Ok(event) = receiver1.recv() {
             println!("Received packet: {event:?}");
         }
     });
