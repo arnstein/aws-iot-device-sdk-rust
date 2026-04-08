@@ -67,40 +67,62 @@ fn normalize_key(key_pem: Vec<u8>) -> Vec<u8> {
         return key_pem;
     };
 
-    // Manually extract just the EC PRIVATE KEY block, skipping any leading
-    // EC PARAMETERS block that would cause from_sec1_pem to fail on the wrong label.
-    let begin = "-----BEGIN EC PRIVATE KEY-----";
-    let end = "-----END EC PRIVATE KEY-----";
-    let Some(start) = key_str.find(begin) else {
-        return key_pem;
-    };
-    let Some(end_offset) = key_str[start..].find(end) else {
-        return key_pem;
-    };
-    let ec_block = &key_str[start..start + end_offset + end.len()];
-
-    println!("aws-iot-sdk: SEC1 EC key detected, attempting PKCS8 conversion");
-
-    if let Ok(key) = p256::SecretKey::from_sec1_pem(ec_block) {
-        use p256::pkcs8::EncodePrivateKey;
-        if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
-            println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-256)");
-            return doc.as_bytes().to_vec();
+    // Handle SEC1 EC key (BEGIN EC PRIVATE KEY) — extract just the key block,
+    // skipping any leading EC PARAMETERS block that would confuse from_sec1_pem.
+    let begin_sec1 = "-----BEGIN EC PRIVATE KEY-----";
+    let end_sec1 = "-----END EC PRIVATE KEY-----";
+    if let Some(start) = key_str.find(begin_sec1) {
+        if let Some(end_offset) = key_str[start..].find(end_sec1) {
+            let ec_block = &key_str[start..start + end_offset + end_sec1.len()];
+            println!("aws-iot-sdk: SEC1 EC key detected, attempting PKCS8 conversion");
+            if let Ok(key) = p256::SecretKey::from_sec1_pem(ec_block) {
+                use p256::pkcs8::EncodePrivateKey;
+                if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                    println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-256)");
+                    return doc.as_bytes().to_vec();
+                }
+            }
+            if let Ok(key) = p384::SecretKey::from_sec1_pem(ec_block) {
+                use p384::pkcs8::EncodePrivateKey;
+                if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                    println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-384)");
+                    return doc.as_bytes().to_vec();
+                }
+            }
+            println!("aws-iot-sdk: SEC1 key conversion failed, returning original");
+            return key_pem;
         }
-        println!("aws-iot-sdk: P-256 parsed but PKCS8 encoding failed");
-    } else {
-        println!("aws-iot-sdk: Key is not P-256, trying P-384");
     }
 
-    if let Ok(key) = p384::SecretKey::from_sec1_pem(ec_block) {
-        use p384::pkcs8::EncodePrivateKey;
-        if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
-            println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-384)");
-            return doc.as_bytes().to_vec();
+    // Handle PKCS8 EC key (BEGIN PRIVATE KEY) — re-encode through p256/p384 to
+    // normalize the structure (e.g. explicit curve params → named curve OID).
+    // If it's RSA or Ed25519 PKCS8, parsing will fail and we pass through unchanged.
+    let begin_pkcs8 = "-----BEGIN PRIVATE KEY-----";
+    let end_pkcs8 = "-----END PRIVATE KEY-----";
+    if let Some(start) = key_str.find(begin_pkcs8) {
+        if let Some(end_offset) = key_str[start..].find(end_pkcs8) {
+            let pkcs8_block = &key_str[start..start + end_offset + end_pkcs8.len()];
+            println!("aws-iot-sdk: PKCS8 key detected, attempting to normalize encoding");
+            {
+                use p256::pkcs8::{DecodePrivateKey, EncodePrivateKey};
+                if let Ok(key) = p256::SecretKey::from_pkcs8_pem(pkcs8_block) {
+                    if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                        println!("aws-iot-sdk: PKCS8 key normalized (P-256)");
+                        return doc.as_bytes().to_vec();
+                    }
+                }
+            }
+            {
+                use p384::pkcs8::{DecodePrivateKey, EncodePrivateKey};
+                if let Ok(key) = p384::SecretKey::from_pkcs8_pem(pkcs8_block) {
+                    if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                        println!("aws-iot-sdk: PKCS8 key normalized (P-384)");
+                        return doc.as_bytes().to_vec();
+                    }
+                }
+            }
+            println!("aws-iot-sdk: PKCS8 key is not P-256/P-384 (likely RSA), passing through");
         }
-        println!("aws-iot-sdk: P-384 parsed but PKCS8 encoding failed");
-    } else {
-        println!("aws-iot-sdk: Key is not P-256 or P-384, returning original bytes");
     }
 
     key_pem
