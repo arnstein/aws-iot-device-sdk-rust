@@ -66,30 +66,43 @@ fn normalize_key(key_pem: Vec<u8>) -> Vec<u8> {
     let Ok(key_str) = std::str::from_utf8(&key_pem) else {
         return key_pem;
     };
-    if !key_str.contains("BEGIN EC PRIVATE KEY") {
+
+    // Manually extract just the EC PRIVATE KEY block, skipping any leading
+    // EC PARAMETERS block that would cause from_sec1_pem to fail on the wrong label.
+    let begin = "-----BEGIN EC PRIVATE KEY-----";
+    let end = "-----END EC PRIVATE KEY-----";
+    let Some(start) = key_str.find(begin) else {
         return key_pem;
-    }
-    log::info!("SEC1 EC key detected, converting to PKCS8");
-    if let Ok(key) = p256::SecretKey::from_sec1_pem(key_str) {
+    };
+    let Some(end_offset) = key_str[start..].find(end) else {
+        return key_pem;
+    };
+    let ec_block = &key_str[start..start + end_offset + end.len()];
+
+    println!("aws-iot-sdk: SEC1 EC key detected, attempting PKCS8 conversion");
+
+    if let Ok(key) = p256::SecretKey::from_sec1_pem(ec_block) {
         use p256::pkcs8::EncodePrivateKey;
         if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
-            log::info!("SEC1 key converted to PKCS8 (P-256)");
+            println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-256)");
             return doc.as_bytes().to_vec();
         }
-        log::warn!("P-256 key parsed but PKCS8 encoding failed");
+        println!("aws-iot-sdk: P-256 parsed but PKCS8 encoding failed");
     } else {
-        log::warn!("Key is not P-256, trying P-384");
+        println!("aws-iot-sdk: Key is not P-256, trying P-384");
     }
-    if let Ok(key) = p384::SecretKey::from_sec1_pem(key_str) {
+
+    if let Ok(key) = p384::SecretKey::from_sec1_pem(ec_block) {
         use p384::pkcs8::EncodePrivateKey;
         if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
-            log::info!("SEC1 key converted to PKCS8 (P-384)");
+            println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-384)");
             return doc.as_bytes().to_vec();
         }
-        log::warn!("P-384 key parsed but PKCS8 encoding failed");
+        println!("aws-iot-sdk: P-384 parsed but PKCS8 encoding failed");
     } else {
-        log::warn!("Key is not P-384 either, returning original bytes (conversion failed)");
+        println!("aws-iot-sdk: Key is not P-256 or P-384, returning original bytes");
     }
+
     key_pem
 }
 
