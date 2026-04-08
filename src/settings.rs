@@ -62,6 +62,28 @@ impl AWSIoTSettings {
     }
 }
 
+fn normalize_key(key_pem: Vec<u8>) -> Vec<u8> {
+    let Ok(key_str) = std::str::from_utf8(&key_pem) else {
+        return key_pem;
+    };
+    if !key_str.contains("BEGIN EC PRIVATE KEY") {
+        return key_pem;
+    }
+    if let Ok(key) = p256::SecretKey::from_sec1_pem(key_str) {
+        use p256::pkcs8::EncodePrivateKey;
+        if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+            return doc.as_bytes().to_vec();
+        }
+    }
+    if let Ok(key) = p384::SecretKey::from_sec1_pem(key_str) {
+        use p384::pkcs8::EncodePrivateKey;
+        if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+            return doc.as_bytes().to_vec();
+        }
+    }
+    key_pem
+}
+
 fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
     let port = settings
         .mqtt_options_overrides
@@ -118,7 +140,7 @@ pub(crate) async fn get_mqtt_options_async(
     let transport = (!transport_overrided).then_some({
         let ca = read(&settings.ca_path).await?;
         let client_cert = read(&settings.client_cert_path).await?;
-        let client_key = read(&settings.client_key_path).await?;
+        let client_key = normalize_key(read(&settings.client_key_path).await?);
 
         Transport::Tls(TlsConfiguration::Simple {
             ca,
@@ -149,7 +171,7 @@ pub(crate) fn get_mqtt_options(
     let transport = (!transport_overrided).then_some({
         let ca = read(&settings.ca_path)?;
         let client_cert = read(&settings.client_cert_path)?;
-        let client_key = read(&settings.client_key_path)?;
+        let client_key = normalize_key(read(&settings.client_key_path)?);
 
         Transport::Tls(TlsConfiguration::Simple {
             ca,
