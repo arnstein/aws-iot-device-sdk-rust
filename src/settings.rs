@@ -69,17 +69,26 @@ fn normalize_key(key_pem: Vec<u8>) -> Vec<u8> {
     if !key_str.contains("BEGIN EC PRIVATE KEY") {
         return key_pem;
     }
+    log::info!("SEC1 EC key detected, converting to PKCS8");
     if let Ok(key) = p256::SecretKey::from_sec1_pem(key_str) {
         use p256::pkcs8::EncodePrivateKey;
         if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+            log::info!("SEC1 key converted to PKCS8 (P-256)");
             return doc.as_bytes().to_vec();
         }
+        log::warn!("P-256 key parsed but PKCS8 encoding failed");
+    } else {
+        log::warn!("Key is not P-256, trying P-384");
     }
     if let Ok(key) = p384::SecretKey::from_sec1_pem(key_str) {
         use p384::pkcs8::EncodePrivateKey;
         if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+            log::info!("SEC1 key converted to PKCS8 (P-384)");
             return doc.as_bytes().to_vec();
         }
+        log::warn!("P-384 key parsed but PKCS8 encoding failed");
+    } else {
+        log::warn!("Key is not P-384 either, returning original bytes (conversion failed)");
     }
     key_pem
 }
