@@ -121,7 +121,32 @@ fn normalize_key(key_pem: Vec<u8>) -> Vec<u8> {
                     }
                 }
             }
-            println!("aws-iot-sdk: PKCS8 key is not P-256/P-384 (likely RSA), passing through");
+            // PKCS8 parsing failed — the PEM header might be lying and the DER
+            // content could actually be SEC1 (raw EC key).  Decode the base64
+            // payload and try SEC1 DER parsing as a last resort.
+            println!("aws-iot-sdk: PKCS8 parsing failed, trying SEC1 DER fallback");
+            let base64_body: String = pkcs8_block
+                .lines()
+                .filter(|l| !l.starts_with("-----"))
+                .collect();
+            use base64::Engine;
+            if let Ok(der) = base64::engine::general_purpose::STANDARD.decode(base64_body.trim()) {
+                if let Ok(key) = p256::SecretKey::from_sec1_der(&der) {
+                    use p256::pkcs8::EncodePrivateKey;
+                    if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                        println!("aws-iot-sdk: mislabeled SEC1 key converted to PKCS8 (P-256)");
+                        return doc.as_bytes().to_vec();
+                    }
+                }
+                if let Ok(key) = p384::SecretKey::from_sec1_der(&der) {
+                    use p384::pkcs8::EncodePrivateKey;
+                    if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                        println!("aws-iot-sdk: mislabeled SEC1 key converted to PKCS8 (P-384)");
+                        return doc.as_bytes().to_vec();
+                    }
+                }
+            }
+            println!("aws-iot-sdk: PKCS8 key is not P-256/P-384 EC (likely RSA), passing through");
         }
     }
 

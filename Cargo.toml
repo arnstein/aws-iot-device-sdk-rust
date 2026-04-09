@@ -25,6 +25,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "logg
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "sync", "fs"], optional = true }
 bus = { version = "2.4.0", optional = true }
 log = "0.4"
+base64 = "0.22"
 p256 = { version = "0.13", features = ["pem", "pkcs8"] }
 p384 = { version = "0.13", features = ["pem", "pkcs8"] }
 
