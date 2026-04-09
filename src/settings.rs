@@ -62,6 +62,72 @@ impl AWSIoTSettings {
     }
 }
 
+fn normalize_key(key_pem: Vec<u8>) -> Vec<u8> {
+    let Ok(key_str) = std::str::from_utf8(&key_pem) else {
+        return key_pem;
+    };
+
+    // Handle SEC1 EC key (BEGIN EC PRIVATE KEY) — extract just the key block,
+    // skipping any leading EC PARAMETERS block that would confuse from_sec1_pem.
+    let begin_sec1 = "-----BEGIN EC PRIVATE KEY-----";
+    let end_sec1 = "-----END EC PRIVATE KEY-----";
+    if let Some(start) = key_str.find(begin_sec1) {
+        if let Some(end_offset) = key_str[start..].find(end_sec1) {
+            let ec_block = &key_str[start..start + end_offset + end_sec1.len()];
+            println!("aws-iot-sdk: SEC1 EC key detected, attempting PKCS8 conversion");
+            if let Ok(key) = p256::SecretKey::from_sec1_pem(ec_block) {
+                use p256::pkcs8::EncodePrivateKey;
+                if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                    println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-256)");
+                    return doc.as_bytes().to_vec();
+                }
+            }
+            if let Ok(key) = p384::SecretKey::from_sec1_pem(ec_block) {
+                use p384::pkcs8::EncodePrivateKey;
+                if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                    println!("aws-iot-sdk: SEC1 key converted to PKCS8 (P-384)");
+                    return doc.as_bytes().to_vec();
+                }
+            }
+            println!("aws-iot-sdk: SEC1 key conversion failed, returning original");
+            return key_pem;
+        }
+    }
+
+    // Handle PKCS8 EC key (BEGIN PRIVATE KEY) — re-encode through p256/p384 to
+    // normalize the structure (e.g. explicit curve params → named curve OID).
+    // If it's RSA or Ed25519 PKCS8, parsing will fail and we pass through unchanged.
+    let begin_pkcs8 = "-----BEGIN PRIVATE KEY-----";
+    let end_pkcs8 = "-----END PRIVATE KEY-----";
+    if let Some(start) = key_str.find(begin_pkcs8) {
+        if let Some(end_offset) = key_str[start..].find(end_pkcs8) {
+            let pkcs8_block = &key_str[start..start + end_offset + end_pkcs8.len()];
+            println!("aws-iot-sdk: PKCS8 key detected, attempting to normalize encoding");
+            {
+                use p256::pkcs8::{DecodePrivateKey, EncodePrivateKey};
+                if let Ok(key) = p256::SecretKey::from_pkcs8_pem(pkcs8_block) {
+                    if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                        println!("aws-iot-sdk: PKCS8 key normalized (P-256)");
+                        return doc.as_bytes().to_vec();
+                    }
+                }
+            }
+            {
+                use p384::pkcs8::{DecodePrivateKey, EncodePrivateKey};
+                if let Ok(key) = p384::SecretKey::from_pkcs8_pem(pkcs8_block) {
+                    if let Ok(doc) = key.to_pkcs8_pem(Default::default()) {
+                        println!("aws-iot-sdk: PKCS8 key normalized (P-384)");
+                        return doc.as_bytes().to_vec();
+                    }
+                }
+            }
+            println!("aws-iot-sdk: PKCS8 key is not P-256/P-384 (likely RSA), passing through");
+        }
+    }
+
+    key_pem
+}
+
 fn set_overrides(settings: AWSIoTSettings) -> MqttOptions {
     let port = settings
         .mqtt_options_overrides
@@ -118,7 +184,7 @@ pub(crate) async fn get_mqtt_options_async(
     let transport = (!transport_overrided).then_some({
         let ca = read(&settings.ca_path).await?;
         let client_cert = read(&settings.client_cert_path).await?;
-        let client_key = read(&settings.client_key_path).await?;
+        let client_key = normalize_key(read(&settings.client_key_path).await?);
 
         Transport::Tls(TlsConfiguration::Simple {
             ca,
@@ -149,7 +215,7 @@ pub(crate) fn get_mqtt_options(
     let transport = (!transport_overrided).then_some({
         let ca = read(&settings.ca_path)?;
         let client_cert = read(&settings.client_cert_path)?;
-        let client_key = read(&settings.client_key_path)?;
+        let client_key = normalize_key(read(&settings.client_key_path)?);
 
         Transport::Tls(TlsConfiguration::Simple {
             ca,
