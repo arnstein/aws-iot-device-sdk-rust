@@ -12,6 +12,8 @@ pub enum AWSIoTError {
     IoError(std::io::Error),
     /// A mutex was poisoned (sync client only).
     MutexError(String),
+    /// The private key could not be parsed or normalized.
+    KeyNormalizationError(String),
 }
 
 impl Display for AWSIoTError {
@@ -25,6 +27,9 @@ impl Display for AWSIoTError {
             }
             AWSIoTError::IoError(err) => write!(f, "Problem reading file: {err}"),
             AWSIoTError::MutexError(msg) => write!(f, "Mutex poisoned: {msg}"),
+            AWSIoTError::KeyNormalizationError(msg) => {
+                write!(f, "Key normalization failed: {msg}")
+            }
         }
     }
 }
@@ -36,6 +41,7 @@ impl std::error::Error for AWSIoTError {
             AWSIoTError::MQTTClientError(err) => Some(err),
             AWSIoTError::IoError(err) => Some(err),
             AWSIoTError::MutexError(_) => None,
+            AWSIoTError::KeyNormalizationError(_) => None,
         }
     }
 }
