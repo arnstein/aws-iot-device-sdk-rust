@@ -47,10 +47,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
     let listen_thread = tokio::spawn(async move {
         async_event_loop_listener(eventloop_stuff).await.unwrap();
-        //iot_core_client.listen().await.unwrap();
     });
 
-    //iot_core_client.publish("topic".to_string(), QoS::AtMostOnce, "hey").await.unwrap();
     match tokio::join!(recv1_thread, recv2_thread, listen_thread) {
         (Ok(_), Ok(_), Ok(_)) => (),
         _ => panic!("Error in threads"),
