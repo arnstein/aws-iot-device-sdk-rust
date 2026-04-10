@@ -20,21 +20,21 @@ Add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-aws-iot-device-sdk-rust = "0.7"
+aws-iot-device-sdk-rust = "0.8"
 ```
 
 By default the async client is enabled. To use the sync client instead:
 
 ```toml
 [dependencies]
-aws-iot-device-sdk-rust = { version = "0.7", default-features = false, features = ["sync"] }
+aws-iot-device-sdk-rust = { version = "0.8", default-features = false, features = ["sync"] }
 ```
 
 You can also enable both:
 
 ```toml
 [dependencies]
-aws-iot-device-sdk-rust = { version = "0.7", features = ["sync"] }
+aws-iot-device-sdk-rust = { version = "0.8", features = ["sync"] }
 ```
 
 ## Prerequisites
