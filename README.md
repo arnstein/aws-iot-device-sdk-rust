@@ -181,6 +181,7 @@ All fallible operations return `Result<_, AWSIoTError>`. The error type wraps th
 | `MQTTClientError` | Client operation failure such as publish/subscribe (wraps `rumqttc::ClientError`) |
 | `IoError` | File I/O error when reading certificates or keys |
 | `MutexError` | Mutex poisoning (sync client only) |
+| `KeyNormalizationError` | Private key normalization failed: non-UTF-8 key data, malformed PEM structure, invalid base64, unrecognized EC curve, or PKCS8 re-encoding failure |
 
 
 ## License

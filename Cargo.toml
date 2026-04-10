@@ -4,7 +4,7 @@ description = "An easy to use SDK for connecting to AWS IoT Core."
 documentation = "https://docs.rs/aws-iot-device-sdk-rust"
 repository = "https://github.com/arnstein/aws-iot-device-sdk-rust"
 license = "MIT"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Arnstein Kleven <arnsteinkleven@gmail.com>"]
 edition = "2021"
 
@@ -25,8 +25,19 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "logg
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "sync", "fs"], optional = true }
 bus = { version = "2.4.0", optional = true }
 log = "0.4"
+base64 = "0.22"
+p256 = { version = "0.13", features = ["pem", "pkcs8"] }
+p384 = { version = "0.13", features = ["pem", "pkcs8"] }
 
 [features]
 default = ["async"]
 async = ["dep:tokio"]
 sync = ["dep:bus"]
+
+[[example]]
+name = "pubsub_async"
+required-features = ["async"]
+
+[[example]]
+name = "pubsub_sync"
+required-features = ["sync"]
